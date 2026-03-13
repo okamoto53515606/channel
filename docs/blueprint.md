@@ -1134,6 +1134,91 @@ Fargateコンテナ内で GitHub MCP Server を利用するために、Personal 
 - ローテーション手順: GitHub で新 PAT 発行 → Secrets Manager 更新 → 旧 PAT 削除
 - 公開リポジトリの読み取りのみのため、漏洩時のリスクは限定的だが、発覚次第即座に revoke する
 
+### Bedrock モデルアクセス（2026-03 時点の最新手順）
+
+2025年10月に Bedrock のモデルアクセスが大幅簡略化された。旧来の「Model Access ページで手動有効化 → 承認待ち」は**廃止**。
+
+#### 変更点サマリ
+
+| 旧（〜2025/09） | 新（2025/10〜） |
+|---|---|
+| Model Access ページで個別に有効化ボタンを押す | **全サーバーレスモデルが自動で有効**（`PutFoundationModelEntitlement` 不要） |
+| 有効化に数分〜数時間の承認待ち | 即座に利用可能 |
+| リージョンごとにモデル有効化が必要 | 1リージョンで Marketplace Subscribe すれば全リージョンで有効 |
+
+#### Anthropic モデルだけ例外: 初回フォーム送信（1回きり）
+
+- **AWSアカウントごとに1回**、Anthropic の利用目的フォームを送信する必要がある
+- Organizations 利用時は管理アカウントで1回送信すればメンバーアカウント全部に継承
+- **送信後は即座にアクセス可能**（待ち時間なし）
+
+```bash
+# 方法1: コンソール → Bedrock → モデルカタログ → Anthropic モデル選択 → フォーム入力
+# 方法2: CLI
+aws bedrock put-use-case-for-model-access \
+  --form-data "$(echo -n '{"company_name":"...","use_case":"..."}' | base64)" \
+  --region us-east-1
+```
+
+#### IAM ポリシー（IAMユーザー `okamo` / Fargate タスクロール共通）
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BedrockInvoke",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:Converse",
+        "bedrock:ConverseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
+        "arn:aws:bedrock:*:210387976006:inference-profile/us.anthropic.*"
+      ]
+    },
+    {
+      "Sid": "MarketplaceForFirstSubscription",
+      "Effect": "Allow",
+      "Action": [
+        "aws-marketplace:Subscribe",
+        "aws-marketplace:Unsubscribe",
+        "aws-marketplace:ViewSubscriptions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "BedrockModelAccess",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:PutUseCaseForModelAccess",
+        "bedrock:GetUseCaseForModelAccess",
+        "bedrock:GetFoundationModelAvailability",
+        "bedrock:ListFoundationModels"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+#### Cross-Region Inference Profile（`us.` プレフィックス）
+
+blueprint の `BEDROCK_MODEL_ID=us.anthropic.claude-opus-4-6-v1` は **US Geographic CRIS**。
+
+- us-east-1 / us-east-2 / us-west-2 間で自動ルーティング（追加コストなし）
+- IAM では inference-profile ARN **と** foundation-model ARN の両方に Allow が必要（上記ポリシーでカバー済み）
+
+#### セットアップ手順
+
+1. Bedrock コンソールで Anthropic 初回フォーム送信（1回きり）
+2. IAMユーザー `okamo` に上記ポリシーをアタッチ
+3. `aws bedrock invoke-model` でローカルテスト
+4. CDK の ECS タスクロールに同じ Bedrock 権限を追加（§10 実装時）
+
 ## 14. 未実装（あとで足す）
 
 以下の機能は初期リリースには含めず、運用開始後に追加を判断する。
