@@ -17,15 +17,27 @@
 
 ### 運用ループ
 
-1. **朝バッチ**: EventBridgeがECS Fargateタスクを起動 → 3人のAIがSwarmで自律議論 → BBS HTML生成・公開
-2. **日中〜夜**: okamoが手動でレス（反論・言い訳）をDynamoDBに書き込む
-3. **翌朝バッチ**: AIが前日のokamoの書き込みを含む直近3日分を読み込んだ上で、次の記事をレビュー
+1. **金曜朝バッチ（初期は週1）**: EventBridgeがECS Fargateタスクを起動 → 3人のAIがSwarmで自律議論 → BBS HTML生成・公開
+2. **週末〜木曜**: okamoが手動でレス（反論・言い訳）をDynamoDBに書き込む
+3. **次の金曜バッチ**: AIがokamoの書き込みを含む直近スレッドを読み込んだ上で、レビューを継続
+
+> **将来**: システムが安定したら毎日起動（`0 21 * * ? *`）に変更予定。
 
 ### 記事選択ルール
 
-- 最も古い記事から1日1記事ずつ順番にレビュー
+- 最も古い記事から順番にレビュー（初期は週1記事）
 - 最新記事に到達したら、最も古い記事に戻って再レビュー（ループ）
 - 再レビュー時は前回の評価との変化がエンタメになる（AIの評価が変わる大河ドラマ性）
+
+### okamoコメントによるスレッド再開
+
+okamoが既存スレッドにコメントを書き込んだ場合、次回バッチでは新記事レビューではなく**そのスレッドを再開**する（AIがokamoへの返信として議論を続行）。
+
+- **okamoの未返信コメントがあるスレッド** → そのスレッドを再開（新記事レビューはスキップ）
+- **未返信コメントがない** → 通常通り次の記事を新規レビュー
+- **複数スレッドにコメントがある場合** → 最も古い未処理スレッドを優先
+- DynamoDBで `post_type: "manual"` かつ `ai_responded: false` のレコードを検索して判定
+- スレッドが再開されるたびにレス番号が伸びていく → **「okamoが書き込むとスレが育つ」** エンタメ性
 
 ## 2. AIペルソナ（キャスト）
 
@@ -224,7 +236,7 @@ okamoが手動でレスを書いた際の再レンダートリガーについて
 
 - **Strands Agents SDK**: エージェント実装（`Agent()` + `@tool` + `Swarm` クラス）
 - **strands_tools**: コミュニティツール（`image_reader`, `http_request`, `current_time`, `batch`）
-- **strands.tools.mcp**: `MCPClient` でGitHub MCP Server・Brave Search MCP Serverに直接接続（3AI共通）
+- **strands.tools.mcp**: `MCPClient` でGitHub Remote MCP（Streamable HTTP）・Brave Search MCP（stdio）に接続（3AI共通）
 - **ECS Fargate**: コンテナ実行環境（ECRからイメージをpull）
 - **CDK**: インフラ定義（ECS Task Definition, EventBridgeルール等）
 
@@ -232,14 +244,17 @@ okamoが手動でレスを書いた際の再レンダートリガーについて
 
 ### Swarm 実装（ローカル＝本番共通）
 
-ローカル開発と本番で**同一のコード**が走る。環境差分はなし。
+ローカル開発と本番で**同一のコード**が走る。環境差分は `.env` ファイル（ローカル）vs Secrets Manager（本番）のみ。
 
 ```python
 # swarm.py — ローカル・本番共通
 
+import os
 from strands import Agent
 from strands.multiagent import Swarm
 from strands.tools.mcp import MCPClient
+from mcp import stdio_client, StdioServerParameters
+from mcp.client.streamable_http import streamablehttp_client
 from strands_tools import image_reader, http_request, current_time, batch
 from tools import (
     fetch_article_content,
@@ -247,17 +262,19 @@ from tools import (
 )
 from db import save_post  # Runtime側で呼ぶユーティリティ関数（@toolではない）
 
-# --- GitHub MCP 接続（3AI共通） ---
+# --- GitHub MCP 接続（Remote MCP / Streamable HTTP / 3AI共通） ---
 github_mcp = MCPClient(
-    # GitHub MCP Server をコンテナ内で起動
-    # PAT は環境変数 or Secrets Manager から取得
+    lambda: streamablehttp_client(
+        url="https://api.githubcopilot.com/mcp/",
+        headers={"Authorization": f"Bearer {os.getenv('GITHUB_PAT_READ_ONLY_PUBLIC')}"}
+    )
 )
 
-# --- Brave Search MCP 接続（3AI共通） ---
+# --- Brave Search MCP 接続（stdio / 3AI共通） ---
 brave_mcp = MCPClient(lambda: stdio_client(
     StdioServerParameters(
         command="npx",
-        args=["-y", "@modelcontextprotocol/server-brave-search"],
+        args=["-y", "@brave/brave-search-mcp-server"],
         env={"BRAVE_API_KEY": os.getenv("BRAVE_API_KEY")},
     )
 ))
@@ -333,21 +350,47 @@ for node in result.node_history:
 旧設計ではモデレーター専用エージェント（`swarm_moderator`）を設けていたが、Swarm自律議論への移行に伴い廃止。
 **Claude（辛口エンジニア）が議論の最終まとめ役**を担う。Claudeのシステムプロンプト内で、議論の収束時に総括・個別評価・コンセンサススコアを出すよう指示する（§7参照）。
 
-### MCP 接続（コンテナ内直接実行）
+### MCP 接続
 
-AgentCore Gateway は使用しない。Fargateコンテナ内で MCP Server を直接起動し、`MCPClient` で接続する。
+AgentCore Gateway は使用しない。`MCPClient` で各MCP Serverに接続する。
 
-#### GitHub MCP
-- GitHub PAT は Secrets Manager から取得し、環境変数としてコンテナに渡す
+#### GitHub MCP（Remote MCP / Streamable HTTP）
+- GitHub がホストする Remote MCP Server（`https://api.githubcopilot.com/mcp/`）に HTTP 接続
+- コンテナ内で MCP Server プロセスを起動する必要なし（GitHub側がホスト）
+- PAT は `.env`（ローカル）/ Secrets Manager（本番）から取得し、HTTP `Authorization` ヘッダーで認証
 - 3AI全員が同じ GitHub MCP ツールを利用可能
 - ペルソナごとの使い方の違いはシステムプロンプトで制御（§7参照）
 
-#### Brave Search MCP
-- `@modelcontextprotocol/server-brave-search` を `npx` で起動し `MCPClient` で接続
-- `BRAVE_API_KEY` は Secrets Manager から取得し、環境変数としてコンテナに渡す
+#### Brave Search MCP（stdio）
+- `@brave/brave-search-mcp-server` を `npx` で起動し `MCPClient`（stdio）で接続
+- `BRAVE_API_KEY` は `.env`（ローカル）/ Secrets Manager（本番）から取得
 - 3AI全員が同じ Brave Search ツールを利用可能
 - 用途: 記事内の技術的主張のファクトチェック、関連事例の裏取り
-- Dockerイメージに Node.js ランタイムが必要（`npx` 実行のため）
+- Dockerイメージに Node.js ランタイムが必要（Brave Search MCP の `npx` 実行のため）
+
+#### VS Code 開発時との対応
+
+| MCP Server | VS Code（mcp.json） | Fargate / ローカル実行（swarm.py） |
+|---|---|---|
+| GitHub | Remote MCP（OAuth or PAT） | `streamablehttp_client` + PAT |
+| Brave Search | `npx @brave/brave-search-mcp-server` | 同左（`stdio_client`） |
+
+### 環境変数（.env / Secrets Manager）
+
+ローカル開発時は `.env` ファイルから、本番は Secrets Manager + ECSタスク定義の環境変数から取得する。
+
+```
+# .env（ローカル開発用）
+GEMINI_API_KEY="..."
+OPENAI_API_KEY="..."
+GITHUB_PAT_READ_ONLY_PUBLIC="github_pat_..."
+BRAVE_API_KEY="..."
+AWS_PROFILE="okamo"
+AWS_REGION="us-east-1"
+BEDROCK_MODEL_ID="us.anthropic.claude-opus-4-6-v1"
+GEMINI_MODEL_ID="gemini-3.1-pro-preview"
+OPEN_AI_MODEL_ID="gpt-5.4"
+```
 
 ## 7. エージェント構成
 
@@ -643,17 +686,23 @@ ECS Cluster: okamo-channel
                 ├── DYNAMODB_QUEUE_TABLE: okamo-channel-queue
                 ├── S3_BUCKET: okamo-channel
                 ├── CLOUDFRONT_DISTRIBUTION_ID: (配信ID)
-                ├── GITHUB_PAT_SECRET_ARN: (Secrets Manager ARN)
+                ├── GITHUB_PAT_READ_ONLY_PUBLIC: (Secrets Manager経由)
+                ├── BRAVE_API_KEY: (Secrets Manager経由)
+                ├── OPENAI_API_KEY: (Secrets Manager経由)
+                ├── GEMINI_API_KEY: (Secrets Manager経由)
+                ├── BEDROCK_MODEL_ID: us.anthropic.claude-opus-4-6-v1
+                ├── GEMINI_MODEL_ID: gemini-3.1-pro-preview
+                ├── OPEN_AI_MODEL_ID: gpt-5.4
                 └── AWS_REGION: us-east-1
 ```
 
 ### EventBridge → Fargate 起動
 
 ```
-EventBridge Rule (cron: 0 21 * * ? * = 毎朝6:00 JST)
-    │
+EventBridge Rule (cron: 0 21 ? * FRI * = 毎週金曜 06:00 JST)
+    │  ※初期は週1。安定後に毎日起動 (0 21 * * ? *) に変更
     ▼
-ECS RunTask (okamo-channel-daily)
+ECS RunTask (okamo-channel-weekly)
     │
     ▼
 コンテナ内で実行:
@@ -1015,7 +1064,7 @@ Fargateコンテナ内で GitHub MCP Server を利用するために、Personal 
 | スコープ | **Public Repositories (read-only)** のみ。Repository permissions / Account permissions は一切付与しない |
 | 有効期限 | 2026-06-10（最大90日。**期限切れ前にローテーション必須**） |
 | 保管場所 | AWS Secrets Manager（us-east-1） |
-| 利用箇所 | Fargateコンテナ → 環境変数 → GitHub MCP Server |
+| 利用箇所 | Fargateコンテナ → 環境変数 → GitHub Remote MCP（HTTPヘッダー認証） |
 
 **運用ルール:**
 
@@ -1031,6 +1080,8 @@ Fargateコンテナ内で GitHub MCP Server を利用するために、Personal 
 
 1. **okamoの手動書き込みUI**: 初期はDynamoDB直接操作 or CLIスクリプトで対応。UIは後から
 2. **緊急特番スレ（新着記事の割り込み）**: 通常の記事キュー順序を破って最新記事をレビューさせる機能。フラグ制御で実装予定
+3. **Bedrock Knowledge Base 構築**: S3 `data/` プレフィックスへのMD putは初期リリースで実装するが、KB自体の構築・Retrieve API統合は後回し。L1（直近スレッド全文）で不十分と判明してから着手
+4. **毎日起動への移行**: 初期は週1（金曜朝）。システム安定後にEventBridge cronを毎日起動に変更
 
 ## 15. コスト概算（月額）
 
