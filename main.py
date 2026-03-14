@@ -16,6 +16,9 @@ from strands.models.bedrock import BedrockModel
 from strands.models.openai import OpenAIModel
 from strands.models.gemini import GeminiModel
 from strands.multiagent import Swarm
+from strands.tools.mcp import MCPClient
+from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.stdio import stdio_client, StdioServerParameters
 from strands_tools import image_reader, http_request, current_time
 
 from prompts import CLAUDE_SYSTEM_PROMPT, GPT_SYSTEM_PROMPT, GEMINI_SYSTEM_PROMPT
@@ -65,8 +68,33 @@ def create_gemini_model() -> GeminiModel:
     )
 
 
+# =====================================================================
+# MCP 接続
+# =====================================================================
+def create_github_mcp() -> MCPClient:
+    """GitHub MCP（Remote MCP / Streamable HTTP）"""
+    pat = get_env("GITHUB_PAT_READ_ONLY_PUBLIC")
+    return MCPClient(
+        lambda: streamablehttp_client(
+            url="https://api.githubcopilot.com/mcp/",
+            headers={"Authorization": f"Bearer {pat}"},
+        )
+    )
+
+
+def create_brave_mcp() -> MCPClient:
+    """Brave Search MCP（stdio / npx）"""
+    return MCPClient(lambda: stdio_client(
+        StdioServerParameters(
+            command="npx",
+            args=["-y", "@brave/brave-search-mcp-server"],
+            env={"BRAVE_API_KEY": get_env("BRAVE_API_KEY")},
+        )
+    ))
+
+
 def build_common_tools() -> list:
-    """全エージェント共通ツール（Phase 4 で MCP を追加）"""
+    """全エージェント共通ツール"""
     return [
         fetch_article_content,
         get_past_threads,
@@ -80,13 +108,15 @@ def build_common_tools() -> list:
 def create_agents() -> dict[str, Agent]:
     """3ペルソナのエージェントを生成する。"""
     common_tools = build_common_tools()
+    github_mcp = create_github_mcp()
+    brave_mcp = create_brave_mcp()
 
     claude_engineer = Agent(
         name="claude_engineer",
         model=create_claude_model(),
         description="辛口エンジニア。GitHubのコードとプロンプトを読み、技術的ツッコミを行う。議論の最終まとめ役も担う",
         system_prompt=CLAUDE_SYSTEM_PROMPT,
-        tools=[*common_tools],
+        tools=[*common_tools, github_mcp, brave_mcp],
     )
 
     gpt_tax_advisor = Agent(
@@ -94,7 +124,7 @@ def create_agents() -> dict[str, Agent]:
         model=create_openai_model(),
         description="独立系税理士。手順の再現性とビジネス実用度を評価し、okamoの心理面も見透かす",
         system_prompt=GPT_SYSTEM_PROMPT,
-        tools=[*common_tools],
+        tools=[*common_tools, github_mcp, brave_mcp],
     )
 
     gemini_mother = Agent(
@@ -102,7 +132,7 @@ def create_agents() -> dict[str, Agent]:
         model=create_gemini_model(),
         description="子育てお母さん。人間味と共感の視点でレビューし、他2人の冷たさに反発する",
         system_prompt=GEMINI_SYSTEM_PROMPT,
-        tools=[*common_tools],
+        tools=[*common_tools, github_mcp, brave_mcp],
     )
 
     return {
@@ -184,11 +214,13 @@ def run_swarm(article_url: str):
     )
 
     prompt = (
-        f"以下の記事を3人でレビュー・議論してください。\n"
+        f"以下の記事を 3人でレビュー・議論してください。\n"
         f"まず fetch_article_content ツールで記事の内容を取得し、\n"
-        f"BBS形式で議論を行ってください。\n"
-        f"各自がレビューした後、他のエージェントの意見に反応し、議論を深めてください。\n"
-        f"議論が十分に行われたら、クロード（辛口エンジニア）がまとめ役として総括してください。\n\n"
+        f"BBS形式で議論を行ってください。\n\n"
+        f"【重要】handoff ルール:\n"
+        f"- 自分のレビューを 1回書いたら、必ず handoff_to_agent ツールで次のエージェントに引き継げ。絶対に 2人分以上書くな。\n"
+        f"- 順番: claude_engineer → gpt_tax_advisor → gemini_mother → claude_engineer（まとめ）\n"
+        f"- claude_engineer が 2周目に戻ってきたらまとめ役として総括せよ\n\n"
         f"スレ主（okamo）の書き込み:\n{opener}\n\n"
         f"レス番号 2 から書き始めてください。"
     )
