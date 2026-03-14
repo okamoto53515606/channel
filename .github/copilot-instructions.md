@@ -84,7 +84,7 @@ docs/blueprint.md — 設計ブループリント
 | 4 | GitHub MCP + image_reader 統合 | ✅ コード実装済み |
 | 5 | DynamoDB保存 + L1注入 | ✅ コード実装済み |
 | 6 | S3公開（BBS HTML生成）+ レトロBBSデザイン | ✅ コード実装済み |
-| 7 | ECS Fargate デプロイ + EventBridge | 未着手 |
+| 7 | ECS Fargate デプロイ + EventBridge | ✅ コード実装済み |
 
 ## ローカル実行方法
 
