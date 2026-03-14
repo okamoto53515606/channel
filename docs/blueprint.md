@@ -251,6 +251,9 @@ okamoが手動でレスを書いた際の再レンダートリガーについて
 
 import os
 from strands import Agent
+from strands.models.bedrock import BedrockModel
+from strands.models.openai import OpenAIModel
+from strands.models.gemini import GeminiModel
 from strands.multiagent import Swarm
 from strands.tools.mcp import MCPClient
 from mcp import stdio_client, StdioServerParameters
@@ -269,9 +272,9 @@ from db import save_post  # Runtime側で呼ぶユーティリティ関数（@to
 GITHUB_PAT  = os.getenv("GITHUB_PAT_READ_ONLY_PUBLIC")  # GitHub Remote MCP 認証
 BRAVE_KEY   = os.getenv("BRAVE_API_KEY")                 # Brave Search MCP 認証
 # モデル指定（エージェントごとに異なるプロバイダ）
-BEDROCK_MODEL = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-6-v1")
-GEMINI_MODEL  = os.getenv("GEMINI_MODEL_ID",  "gemini-3.1-pro-preview")
-OPENAI_MODEL  = os.getenv("OPEN_AI_MODEL_ID", "gpt-5.4")
+BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-6-v1")
+GEMINI_MODEL_ID  = os.getenv("GEMINI_MODEL_ID",  "gemini-3.1-pro-preview")
+OPENAI_MODEL_ID  = os.getenv("OPEN_AI_MODEL_ID", "gpt-5.4")
 # その他
 OPENAI_KEY  = os.getenv("OPENAI_API_KEY")   # GPT（税理士）用
 GEMINI_KEY  = os.getenv("GEMINI_API_KEY")   # Gemini（母ちゃん）用
@@ -316,10 +319,23 @@ common_tools = [
     batch,
 ]
 
+# --- モデルプロバイダー ---
+# Strands SDK v1.x では model= に明示的なプロバイダーインスタンスを渡す
+# （旧 model_id= 直接指定は非対応）
+claude_model = BedrockModel(model_id=BEDROCK_MODEL_ID)
+openai_model = OpenAIModel(
+    client_args={"api_key": OPENAI_KEY},
+    model_id=OPENAI_MODEL_ID,
+)
+gemini_model = GeminiModel(
+    client_args={"api_key": GEMINI_KEY},
+    model_id=GEMINI_MODEL_ID,
+)
+
 # --- エージェント定義 ---
 claude_engineer = Agent(
     name="claude_engineer",
-    model_id=BEDROCK_MODEL,  # us.anthropic.claude-opus-4-6-v1
+    model=claude_model,      # BedrockModel（us.anthropic.claude-opus-4-6-v1）
     description="辛口エンジニア。GitHubのコードとプロンプトを読み、技術的ツッコミを行う。議論の最終まとめ役も担う",
     system_prompt=CLAUDE_SYSTEM_PROMPT,  # §7 参照
     tools=[*common_tools, github_mcp, brave_mcp],
@@ -327,7 +343,7 @@ claude_engineer = Agent(
 
 gpt_tax_advisor = Agent(
     name="gpt_tax_advisor",
-    model_id=OPENAI_MODEL,   # gpt-5.4（OPENAI_API_KEY で認証）
+    model=openai_model,      # OpenAIModel（gpt-5.4）
     description="独立系税理士。手順の再現性とビジネス実用度を評価し、okamoの心理面も見透かす",
     system_prompt=GPT_SYSTEM_PROMPT,
     tools=[*common_tools, github_mcp, brave_mcp],
@@ -335,7 +351,7 @@ gpt_tax_advisor = Agent(
 
 gemini_mother = Agent(
     name="gemini_mother",
-    model_id=GEMINI_MODEL,   # gemini-3.1-pro-preview（GEMINI_API_KEY で認証）
+    model=gemini_model,      # GeminiModel（gemini-3.1-pro-preview）
     description="子育てお母さん。人間味と共感の視点でレビューし、他2人の冷たさに反発する",
     system_prompt=GEMINI_SYSTEM_PROMPT,
     tools=[*common_tools, github_mcp, brave_mcp],
