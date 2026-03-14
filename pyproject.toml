@@ -1,0 +1,20 @@
+[project]
+name = "okamo-channel"
+version = "0.1.0"
+description = "okamoちゃんねる — AI 3人が2ch風BBSで記事をレビューする自律議論システム"
+requires-python = ">=3.12"
+dependencies = [
+    "strands-agents[bedrock,openai,gemini]",
+    "strands-agents-tools",
+    "python-dotenv",
+    "requests",
+    "beautifulsoup4",
+    "boto3",
+]
+
+[project.scripts]
+okamo-channel = "main:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
