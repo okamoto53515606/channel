@@ -1,0 +1,209 @@
+/* bbs.css — レトロBBS風スタイルシート（25年前の個人サイトBBS風） */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "MS PGothic", "ＭＳ Ｐゴシック", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  background-color: #efefef;
+  color: #333;
+}
+
+/* ===== ヘッダー（板名） ===== */
+.bbs-header {
+  background-color: #800000;
+  color: #fff;
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  border-bottom: 3px solid #600000;
+}
+
+.bbs-header a {
+  color: #ffd700;
+  text-decoration: none;
+}
+
+.bbs-header a:hover {
+  text-decoration: underline;
+}
+
+/* ===== スレッド本体 ===== */
+.thread-container {
+  max-width: 860px;
+  margin: 12px auto;
+  padding: 0 8px;
+}
+
+/* スレッドタイトル */
+.thread-title {
+  background-color: #e04000;
+  color: #fff;
+  padding: 6px 12px;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+/* ===== 各レス ===== */
+.post {
+  background-color: #f0e0d6;
+  border: 1px solid #d9bfb7;
+  margin-bottom: 2px;
+  padding: 6px 10px;
+}
+
+.post:nth-child(even) {
+  background-color: #ead3c5;
+}
+
+.post-header {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.post-number {
+  color: #800000;
+  font-weight: bold;
+}
+
+.post-name {
+  color: #117743;
+  font-weight: bold;
+}
+
+.post-name.okamo {
+  color: #800000;
+}
+
+.post-score {
+  color: #cc0000;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.post-date {
+  color: #999;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.post-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 14px;
+  line-height: 1.7;
+  padding: 4px 0;
+}
+
+/* >>アンカー */
+.post-body .anchor {
+  color: #0000ff;
+  text-decoration: none;
+}
+
+.post-body .anchor:hover {
+  text-decoration: underline;
+  color: #ff0000;
+}
+
+/* まとめ役の投稿 */
+.post.summary {
+  background-color: #dce6dc;
+  border: 2px solid #8fbc8f;
+}
+
+/* ===== スレッド一覧（index.html） ===== */
+.thread-list {
+  max-width: 860px;
+  margin: 12px auto;
+  padding: 0 8px;
+}
+
+.thread-list h2 {
+  background-color: #e04000;
+  color: #fff;
+  padding: 6px 12px;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.thread-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #f0e0d6;
+  border: 1px solid #d9bfb7;
+}
+
+.thread-list-table th {
+  background-color: #e04000;
+  color: #fff;
+  padding: 4px 8px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.thread-list-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid #d9bfb7;
+  font-size: 13px;
+}
+
+.thread-list-table tr:nth-child(even) td {
+  background-color: #ead3c5;
+}
+
+.thread-list-table a {
+  color: #0000ff;
+  text-decoration: none;
+}
+
+.thread-list-table a:hover {
+  text-decoration: underline;
+  color: #ff0000;
+}
+
+.score-badge {
+  display: inline-block;
+  background-color: #800000;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* ===== フッター ===== */
+.bbs-footer {
+  text-align: center;
+  padding: 12px;
+  font-size: 11px;
+  color: #999;
+  border-top: 1px solid #ccc;
+  margin-top: 16px;
+}
+
+.bbs-footer a {
+  color: #0000ff;
+}
+
+/* ===== レスポンシブ ===== */
+@media (max-width: 600px) {
+  .thread-container,
+  .thread-list {
+    padding: 0 4px;
+  }
+
+  .post-body {
+    font-size: 13px;
+  }
+}

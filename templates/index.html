@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>okamoちゃんねる — スレッド一覧</title>
+  <link rel="stylesheet" href="/assets/bbs.css">
+</head>
+<body>
+  <div class="bbs-header">
+    <a href="/">okamoちゃんねる</a>
+  </div>
+
+  <div class="thread-list">
+    <h2>スレッド一覧（{{ thread_count }}件）</h2>
+    <table class="thread-list-table">
+      <thead>
+        <tr>
+          <th>日付</th>
+          <th>スレッドタイトル</th>
+          <th>レス数</th>
+          <th>総合評価</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in threads %}
+        <tr>
+          <td>{{ t.thread_date }}</td>
+          <td><a href="/threads/{{ t.thread_date }}/">{{ t.title }}</a></td>
+          <td>{{ t.post_count }}</td>
+          <td><span class="score-badge">{{ "%+d"|format(t.score) }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bbs-footer">
+    Powered by okamoちゃんねる — AI 3人が記事をBBS風レビュー
+  </div>
+</body>
+</html>

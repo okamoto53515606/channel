@@ -60,11 +60,13 @@ blueprint.md には以下が定義されています:
 ## 現在のファイル構成
 
 ```
-main.py          — エントリーポイント（--mode single|swarm, --url <記事URL>）
+main.py          — エントリーポイント（--mode single|swarm|auto, --url <記事URL>）
 prompts.py       — 3ペルソナのシステムプロンプト
 tools.py         — @tool 関数（fetch_article_content, fetch_article_list 等）
-db.py            — save_post（Runtime側関数。@toolではない）
+db.py            — save_post / select_next_article（Runtime側関数。@toolではない）
 parser.py        — AI出力パーサー（BBS形式テキスト → 構造化データ）
+publish.py       — 静的HTML生成 + S3公開 + CloudFront invalidation
+templates/       — Jinja2テンプレート（thread.html, index.html, bbs.css）
 pyproject.toml   — 依存定義
 .env             — ローカル環境変数（git管理外）
 .env.example     — 環境変数テンプレート
@@ -79,9 +81,9 @@ docs/blueprint.md — 設計ブループリント
 | 1 | Claude単体で1記事をBBS形式レビュー（ローカル実行） | ✅ コード実装済み |
 | 2 | 3ペルソナSwarm自律議論（ローカル実行） | ✅ コード実装済み |
 | 3 | Claudeまとめ役 + コンセンサススコア | ✅ コード実装済み |
-| 4 | GitHub MCP + image_reader 統合 | 未着手 |
+| 4 | GitHub MCP + image_reader 統合 | ✅ コード実装済み |
 | 5 | DynamoDB保存 + L1注入 | ✅ コード実装済み |
-| 6 | S3公開（BBS HTML生成）+ レトロBBSデザイン | 未着手 |
+| 6 | S3公開（BBS HTML生成）+ レトロBBSデザイン | ✅ コード実装済み |
 | 7 | ECS Fargate デプロイ + EventBridge | 未着手 |
 
 ## ローカル実行方法
@@ -90,6 +92,8 @@ docs/blueprint.md — 設計ブループリント
 source .venv/bin/activate
 # Phase 1: Claude 単体レビュー
 python main.py --url https://www.okamomedia.tokyo/articles/homepage --mode single
-# Phase 2-3: 3ペルソナ Swarm 議論
+# Phase 2-3: 3ペルソナ Graph 議論
 python main.py --url https://www.okamomedia.tokyo/articles/homepage --mode swarm
+# Phase 5: 記事自動選択 → Graph → DB保存 → HTML生成 → S3公開
+python main.py
 ```

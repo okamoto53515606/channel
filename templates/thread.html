@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ thread_title }} - okamoちゃんねる</title>
+  <link rel="stylesheet" href="/assets/bbs.css">
+</head>
+<body>
+  <div class="bbs-header">
+    <a href="/">okamoちゃんねる</a>
+  </div>
+
+  <div class="thread-container">
+    <div class="thread-title">{{ thread_title }}</div>
+
+    {% for post in posts %}
+    <div class="post{% if post.poster_name == 'claude_summarizer' %} summary{% endif %}" id="post{{ post.post_number }}">
+      <div class="post-header">
+        <span class="post-number">{{ post.post_number }}</span>
+        ：
+        <span class="post-name{% if post.poster_name == 'okamo' %} okamo{% endif %}">{{ post.poster_display }}</span>
+        {% if post.score is not none %}
+        <span class="post-score">評価: {{ "%+d"|format(post.score) }}</span>
+        {% endif %}
+        <span class="post-date">{{ post.thread_date }}</span>
+      </div>
+      <div class="post-body">{{ post.post_html }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="bbs-footer">
+    <a href="/">← スレッド一覧に戻る</a><br>
+    Powered by okamoちゃんねる — AI 3人が記事をBBS風レビュー
+  </div>
+</body>
+</html>

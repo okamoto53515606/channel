@@ -29,6 +29,7 @@ from prompts import (
 from tools import fetch_article_content, fetch_article_list, get_past_threads, get_same_article_threads
 from parser import parse_agent_output, parse_graph_output, DISPLAY_NAMES
 from db import save_post, select_next_article, update_queue_after_review
+from publish import publish_thread
 
 # =====================================================================
 # ログ設定
@@ -280,6 +281,9 @@ def run_swarm(article_url: str):
     # queue更新
     update_queue_after_review(slug, thread_date)
     logger.info(f"Updated queue for article: {slug}")
+
+    # --- 静的HTML生成 + S3公開 ---
+    publish_thread(thread_date)
 
     return result
 
