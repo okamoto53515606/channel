@@ -1,8 +1,8 @@
 # main.py — okamoちゃんねる エントリーポイント
 #
 # Phase 1: python main.py --url <記事URL>                    → Claude単体レビュー
-# Phase 2: python main.py --url <記事URL> --mode swarm       → 3ペルソナSwarm議論
-# 本番:    python main.py                                     → 記事選択→Swarm→公開
+# Phase 2: python main.py --url <記事URL> --mode swarm       → 3ペルソナGraph議論
+# 本番:    python main.py                                     → 記事選択→Graph→公開
 
 import argparse
 import logging
@@ -15,13 +15,16 @@ from strands import Agent
 from strands.models.bedrock import BedrockModel
 from strands.models.openai import OpenAIModel
 from strands.models.gemini import GeminiModel
-from strands.multiagent import Swarm
+from strands.multiagent.graph import GraphBuilder
 from strands.tools.mcp import MCPClient
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.stdio import stdio_client, StdioServerParameters
 from strands_tools import image_reader, http_request, current_time
 
-from prompts import CLAUDE_SYSTEM_PROMPT, GPT_SYSTEM_PROMPT, GEMINI_SYSTEM_PROMPT
+from prompts import (
+    CLAUDE_SYSTEM_PROMPT, GPT_SYSTEM_PROMPT, GEMINI_SYSTEM_PROMPT,
+    CLAUDE_SUMMARIZER_PROMPT,
+)
 from tools import fetch_article_content, get_past_threads, get_same_article_threads
 from parser import parse_agent_output, parse_swarm_output, DISPLAY_NAMES
 
@@ -106,7 +109,7 @@ def build_common_tools() -> list:
 
 
 def create_agents() -> dict[str, Agent]:
-    """3ペルソナのエージェントを生成する。"""
+    """3ペルソナ + まとめ役のエージェントを生成する。"""
     common_tools = build_common_tools()
     github_mcp = create_github_mcp()
     brave_mcp = create_brave_mcp()
@@ -114,7 +117,6 @@ def create_agents() -> dict[str, Agent]:
     claude_engineer = Agent(
         name="claude_engineer",
         model=create_claude_model(),
-        description="辛口エンジニア。GitHubのコードとプロンプトを読み、技術的ツッコミを行う。議論の最終まとめ役も担う",
         system_prompt=CLAUDE_SYSTEM_PROMPT,
         tools=[*common_tools, github_mcp, brave_mcp],
     )
@@ -122,7 +124,6 @@ def create_agents() -> dict[str, Agent]:
     gpt_tax_advisor = Agent(
         name="gpt_tax_advisor",
         model=create_openai_model(),
-        description="独立系税理士。手順の再現性とビジネス実用度を評価し、okamoの心理面も見透かす",
         system_prompt=GPT_SYSTEM_PROMPT,
         tools=[*common_tools, github_mcp, brave_mcp],
     )
@@ -130,15 +131,22 @@ def create_agents() -> dict[str, Agent]:
     gemini_mother = Agent(
         name="gemini_mother",
         model=create_gemini_model(),
-        description="子育てお母さん。人間味と共感の視点でレビューし、他2人の冷たさに反発する",
         system_prompt=GEMINI_SYSTEM_PROMPT,
         tools=[*common_tools, github_mcp, brave_mcp],
+    )
+
+    claude_summarizer = Agent(
+        name="claude_summarizer",
+        model=create_claude_model(),
+        system_prompt=CLAUDE_SUMMARIZER_PROMPT,
+        tools=[],
     )
 
     return {
         "claude_engineer": claude_engineer,
         "gpt_tax_advisor": gpt_tax_advisor,
         "gemini_mother": gemini_mother,
+        "claude_summarizer": claude_summarizer,
     }
 
 
@@ -191,36 +199,36 @@ def run_single_agent(article_url: str):
 
 
 # =====================================================================
-# Phase 2-3: Swarm 自律議論
+# Phase 2-3: Graph 自律議論
 # =====================================================================
 def run_swarm(article_url: str):
-    """3ペルソナSwarmで自律議論。"""
-    logger.info("=== Phase 2-3: Swarm 自律議論 ===")
+    """4ノードGraphで決定論的議論（claude→gpt→gemini→まとめ）。"""
+    logger.info("=== Phase 2-3: Graph 自律議論 ===")
 
     agents = create_agents()
 
     article = {"url": article_url, "title": article_url.split("/")[-1]}
     opener = make_thread_opener(article)
 
-    swarm = Swarm(
-        [agents["claude_engineer"], agents["gpt_tax_advisor"], agents["gemini_mother"]],
-        entry_point=agents["claude_engineer"],
-        max_handoffs=15,
-        max_iterations=20,
-        execution_timeout=3000.0,  # 50分
-        node_timeout=600.0,  # 10分/エージェント
-        repetitive_handoff_detection_window=6,
-        repetitive_handoff_min_unique_agents=3,
-    )
+    builder = GraphBuilder()
+    n_claude = builder.add_node(agents["claude_engineer"], "claude_engineer")
+    n_gpt = builder.add_node(agents["gpt_tax_advisor"], "gpt_tax_advisor")
+    n_gemini = builder.add_node(agents["gemini_mother"], "gemini_mother")
+    n_summary = builder.add_node(agents["claude_summarizer"], "claude_summarizer")
+
+    builder.add_edge(n_claude, n_gpt)
+    builder.add_edge(n_gpt, n_gemini)
+    builder.add_edge(n_gemini, n_summary)
+
+    builder.set_execution_timeout(3000.0)   # 50分
+    builder.set_node_timeout(600.0)         # 10分/ノード
+
+    graph = builder.build()
 
     prompt = (
-        f"以下の記事を 3人でレビュー・議論してください。\n"
+        f"以下の記事をレビューしてください。\n"
         f"まず fetch_article_content ツールで記事の内容を取得し、\n"
-        f"BBS形式で議論を行ってください。\n\n"
-        f"【重要】handoff ルール:\n"
-        f"- 自分のレビューを 1回書いたら、必ず handoff_to_agent ツールで次のエージェントに引き継げ。絶対に 2人分以上書くな。\n"
-        f"- 順番: claude_engineer → gpt_tax_advisor → gemini_mother → claude_engineer（まとめ）\n"
-        f"- claude_engineer が 2周目に戻ってきたらまとめ役として総括せよ\n\n"
+        f"BBS形式でレビューを書いてください。\n\n"
         f"スレ主（okamo）の書き込み:\n{opener}\n\n"
         f"レス番号 2 から書き始めてください。"
     )
@@ -229,10 +237,11 @@ def run_swarm(article_url: str):
     print(opener)
     print("-" * 60)
 
-    result = swarm(prompt)
+    result = graph(prompt)
 
     print(f"\nStatus: {result.status}")
-    print(f"Node history: {[node.node_id for node in result.node_history]}")
+    print(f"Execution order: {[node.node_id for node in result.execution_order]}")
+    print(f"Completed: {result.completed_nodes}/{result.total_nodes}")
     print("=" * 60)
 
 
