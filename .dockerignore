@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.git/
+.github/
+.vscode/
+.gitignore
+*.egg-info/
+docs/
+prompt_history/
