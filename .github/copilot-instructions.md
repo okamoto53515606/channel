@@ -80,7 +80,7 @@ docs/blueprint.md — 設計ブループリント
 | 2 | 3ペルソナSwarm自律議論（ローカル実行） | ✅ コード実装済み |
 | 3 | Claudeまとめ役 + コンセンサススコア | ✅ コード実装済み |
 | 4 | GitHub MCP + image_reader 統合 | 未着手 |
-| 5 | DynamoDB保存 + L1注入 | スタブ実装済み |
+| 5 | DynamoDB保存 + L1注入 | ✅ コード実装済み |
 | 6 | S3公開（BBS HTML生成）+ レトロBBSデザイン | 未着手 |
 | 7 | ECS Fargate デプロイ + EventBridge | 未着手 |
 

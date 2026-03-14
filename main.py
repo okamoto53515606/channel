@@ -1,8 +1,9 @@
 # main.py — okamoちゃんねる エントリーポイント
 #
-# Phase 1: python main.py --url <記事URL>                    → Claude単体レビュー
+# Phase 1: python main.py --url <記事URL> --mode single      → Claude単体レビュー
 # Phase 2: python main.py --url <記事URL> --mode swarm       → 3ペルソナGraph議論
-# 本番:    python main.py                                     → 記事選択→Graph→公開
+# Phase 5: python main.py                                     → 記事自動選択→Graph→DB保存
+# Phase 5: python main.py --url <記事URL>                     → 指定記事→Graph→DB保存
 
 import argparse
 import logging
@@ -25,8 +26,9 @@ from prompts import (
     CLAUDE_SYSTEM_PROMPT, GPT_SYSTEM_PROMPT, GEMINI_SYSTEM_PROMPT,
     CLAUDE_SUMMARIZER_PROMPT,
 )
-from tools import fetch_article_content, get_past_threads, get_same_article_threads
-from parser import parse_agent_output, parse_swarm_output, DISPLAY_NAMES
+from tools import fetch_article_content, fetch_article_list, get_past_threads, get_same_article_threads
+from parser import parse_agent_output, parse_graph_output, DISPLAY_NAMES
+from db import save_post, select_next_article, update_queue_after_review
 
 # =====================================================================
 # ログ設定
@@ -208,7 +210,9 @@ def run_swarm(article_url: str):
     agents = create_agents()
 
     article = {"url": article_url, "title": article_url.split("/")[-1]}
+    slug = article_url.rstrip("/").split("/")[-1]
     opener = make_thread_opener(article)
+    thread_date = datetime.now(JST).strftime("%Y-%m-%d")
 
     builder = GraphBuilder()
     n_claude = builder.add_node(agents["claude_engineer"], "claude_engineer")
@@ -244,6 +248,64 @@ def run_swarm(article_url: str):
     print(f"Completed: {result.completed_nodes}/{result.total_nodes}")
     print("=" * 60)
 
+    # --- DynamoDB保存 ---
+    # >>1 スレ主(okamo) を保存
+    save_post(
+        thread_date=thread_date,
+        post_number="001",
+        poster_name="okamo",
+        poster_display="okamo（スレ主）",
+        post_text=opener,
+        article_id=slug,
+        article_title=article.get("title", ""),
+        post_type="opener",
+    )
+    logger.info("Saved opener as post 001")
+
+    # 各AIの書き込みを保存
+    posts = parse_graph_output(result)
+    for post in posts:
+        save_post(
+            thread_date=thread_date,
+            post_number=post["post_number"],
+            poster_name=post["poster_name"],
+            poster_display=post["poster_display"],
+            post_text=post["post_text"],
+            score=post.get("score"),
+            article_id=slug,
+            article_title=article.get("title", ""),
+        )
+        logger.info(f"Saved post {post['post_number']} by {post['poster_name']}")
+
+    # queue更新
+    update_queue_after_review(slug, thread_date)
+    logger.info(f"Updated queue for article: {slug}")
+
+    return result
+
+
+# =====================================================================
+# Auto モード: 記事自動選択 → Graph → 保存
+# =====================================================================
+def run_auto():
+    """記事一覧から次の対象を自動選択し、Graph議論→DB保存する。"""
+    logger.info("=== Auto モード: 記事自動選択 ===")
+
+    articles = fetch_article_list()
+    logger.info(f"記事一覧: {len(articles)}件取得")
+
+    selected = select_next_article(articles)
+    if not selected:
+        logger.error("レビュー対象の記事が見つかりません")
+        sys.exit(1)
+
+    logger.info(f"選択記事: {selected['title']} ({selected['url']})")
+    print(f"📰 次の記事: {selected['title']}")
+    print(f"   URL: {selected['url']}")
+    print()
+
+    run_swarm(selected["url"])
+
 
 # =====================================================================
 # エントリーポイント
@@ -252,24 +314,31 @@ def main():
     load_dotenv()
 
     ap = argparse.ArgumentParser(description="okamoちゃんねる — AI BBS レビューシステム")
-    ap.add_argument("--url", help="レビュー対象の記事URL")
+    ap.add_argument("--url", help="レビュー対象の記事URL（省略時は自動選択）")
     ap.add_argument(
         "--mode",
-        choices=["single", "swarm"],
-        default="single",
-        help="single: Claude単体(Phase1), swarm: 3ペルソナ議論(Phase2-3)",
+        choices=["single", "swarm", "auto"],
+        default="auto",
+        help="single: Claude単体(Phase1), swarm: 3ペルソナ議論(Phase2-3), auto: 記事自動選択(Phase5)",
     )
     args = ap.parse_args()
 
-    if not args.url:
-        print("--url で記事URLを指定してください", file=sys.stderr)
-        print("例: python main.py --url https://www.okamomedia.tokyo/articles/homepage", file=sys.stderr)
-        sys.exit(1)
-
     if args.mode == "single":
+        if not args.url:
+            print("--mode single では --url が必要です", file=sys.stderr)
+            sys.exit(1)
         run_single_agent(args.url)
-    else:
+    elif args.mode == "swarm":
+        if not args.url:
+            print("--mode swarm では --url が必要です", file=sys.stderr)
+            sys.exit(1)
         run_swarm(args.url)
+    else:
+        # auto モード
+        if args.url:
+            run_swarm(args.url)
+        else:
+            run_auto()
 
 
 if __name__ == "__main__":

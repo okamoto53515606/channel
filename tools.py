@@ -94,13 +94,67 @@ def get_past_threads(count: int = None) -> str:
     if count <= 0:
         return "過去スレッド参照なし（PAST_THREAD_COUNT=0）"
 
-    # Phase 5 で DynamoDB 連携実装。現時点ではスタブ。
-    return "過去スレッドなし（初回実行）"
+    import boto3
+    dynamodb = boto3.resource("dynamodb", region_name=os.getenv("AWS_REGION", "us-east-1"))
+    table = dynamodb.Table(os.getenv("DYNAMODB_THREADS_TABLE", "okamo-channel-threads"))
+
+    # thread_date の降順で直近N件のユニークな日付を取得
+    response = table.scan(ProjectionExpression="thread_date")
+    if not response["Items"]:
+        return "過去スレッドなし（初回実行）"
+
+    dates = sorted({item["thread_date"] for item in response["Items"]}, reverse=True)
+    recent_dates = dates[:count]
+
+    results = []
+    for date in sorted(recent_dates):  # 古い順に並べ直す
+        thread_response = table.query(
+            KeyConditionExpression="thread_date = :d",
+            ExpressionAttributeValues={":d": date},
+        )
+        if thread_response["Items"]:
+            thread_posts = sorted(thread_response["Items"], key=lambda x: x["post_number"])
+            thread_text = f"## スレッド: {date} - {thread_posts[0].get('article_title', '不明')}\n"
+            for post in thread_posts:
+                score_str = f" 評価: {post['score']}" if post.get("score") is not None else ""
+                thread_text += f"\n{post['post_number']} ： {post['poster_display']}{score_str}\n{post['post_text']}\n"
+            results.append(thread_text)
+
+    return "\n\n---\n\n".join(results) if results else "過去スレッドなし（初回実行）"
 
 
 @tool
 def get_same_article_threads(article_id: str) -> str:
     """同一記事の過去スレッドをGSI経由で全件取得する。
     再レビュー時のスコア変遷比較に使用。"""
-    # Phase 5 で DynamoDB 連携実装。現時点ではスタブ。
-    return "この記事の過去スレッドなし（初回レビュー）"
+    import boto3
+    dynamodb = boto3.resource("dynamodb", region_name=os.getenv("AWS_REGION", "us-east-1"))
+    table = dynamodb.Table(os.getenv("DYNAMODB_THREADS_TABLE", "okamo-channel-threads"))
+
+    response = table.query(
+        IndexName="article-index",
+        KeyConditionExpression="article_id = :aid",
+        ExpressionAttributeValues={":aid": article_id},
+    )
+    if not response["Items"]:
+        return "この記事の過去スレッドなし（初回レビュー）"
+
+    # thread_date でグルーピング
+    threads: dict[str, list] = {}
+    for item in response["Items"]:
+        d = item["thread_date"]
+        threads.setdefault(d, []).append(item)
+
+    results = []
+    for date in sorted(threads.keys()):
+        posts = sorted(threads[date], key=lambda x: x["post_number"])
+        title = posts[0].get("article_title", "不明")
+        scores = {p["poster_name"]: p["score"] for p in posts if p.get("score") is not None}
+        score_line = " / ".join(f"{k}: {v:+d}" for k, v in scores.items())
+        thread_text = f"## 過去スレ: {date} - {title}\nスコア: {score_line}\n"
+        for post in posts:
+            score_str = f" 評価: {post['score']}" if post.get("score") is not None else ""
+            thread_text += f"\n{post['post_number']} ： {post['poster_display']}{score_str}\n{post['post_text']}\n"
+        results.append(thread_text)
+
+    return "\n\n---\n\n".join(results)

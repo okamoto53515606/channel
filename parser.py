@@ -7,6 +7,7 @@ DISPLAY_NAMES = {
     "claude_engineer": "クロード（辛口エンジニア）",
     "gpt_tax_advisor": "GPT（税理士）",
     "gemini_mother": "Gemini（お母さん）",
+    "claude_summarizer": "クロード（まとめ役）",
 }
 
 
@@ -78,6 +79,31 @@ def parse_swarm_output(result) -> list[dict]:
         posts = parse_agent_output(text, agent_name)
 
         # レス番号を連番で振り直す
+        for post in posts:
+            post["post_number"] = str(post_counter).zfill(3)
+            post_counter += 1
+            all_posts.append(post)
+
+    return all_posts
+
+
+def parse_graph_output(result) -> list[dict]:
+    """Graph実行結果からレス一覧をパースする。
+
+    result: GraphResult (result.execution_order, result.results)
+    """
+    all_posts = []
+    post_counter = 2  # レス番号は002から（001はokamoスレ主）
+
+    for node in result.execution_order:
+        agent_name = node.node_id
+        node_result = result.results.get(agent_name)
+        if not node_result or not node_result.result:
+            continue
+
+        text = str(node_result.result)
+        posts = parse_agent_output(text, agent_name)
+
         for post in posts:
             post["post_number"] = str(post_counter).zfill(3)
             post_counter += 1
