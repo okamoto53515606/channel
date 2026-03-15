@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "okamoちゃんねる — AI 3人が2ch風BBSで記事をレビューする自律議論システム"
 requires-python = ">=3.12"
 dependencies = [
-    "strands-agents[bedrock,openai,gemini]",
+    "strands-agents[anthropic,bedrock,openai,gemini]",
     "strands-agents-tools",
     "python-dotenv",
     "requests",
