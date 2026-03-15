@@ -228,7 +228,7 @@ def run_swarm(article_url: str):
     builder.add_edge(n_gemini, n_summary)
 
     builder.set_execution_timeout(3000.0)   # 50分
-    builder.set_node_timeout(600.0)         # 10分/ノード
+    builder.set_node_timeout(1200.0)        # 20分/ノード
 
     graph = builder.build()
 
