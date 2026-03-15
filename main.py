@@ -14,6 +14,7 @@ from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from strands import Agent
 from strands.models.bedrock import BedrockModel
+from strands.models.model import CacheConfig
 from strands.models.openai import OpenAIModel
 from strands.models.gemini import GeminiModel
 from strands.multiagent.graph import GraphBuilder
@@ -57,6 +58,8 @@ def get_env(key: str, default: str = "") -> str:
 def create_claude_model() -> BedrockModel:
     return BedrockModel(
         model_id=get_env("BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-6-v1"),
+        cache_tools="default",
+        cache_config=CacheConfig(strategy="auto"),
     )
 
 
