@@ -57,7 +57,7 @@ def get_env(key: str, default: str = "") -> str:
 def create_claude_model() -> AnthropicModel:
     return AnthropicModel(
         client_args={"api_key": get_env("CLAUDE_API_KEY")},
-        model_id=get_env("CLAUDE_MODEL_ID", "claude-opus-4-6-20250515"),
+        model_id=get_env("CLAUDE_MODEL_ID", "claude-opus-4-6"),
         max_tokens=16384,
     )
 
