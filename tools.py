@@ -23,6 +23,13 @@ def fetch_article_list() -> list[dict]:
         if not slug:
             continue
 
+        # 有料記事をスキップ（badge--paid クラスの有無で判定）
+        badge = link.find("span", class_=re.compile(r"article-card__badge"))
+        if badge:
+            badge_text = badge.get_text(strip=True)
+            if badge_text == "有料":
+                continue
+
         text = link.get_text(separator=" ", strip=True)
 
         # 日付パース: "2026年3月10日" → "2026-03-10"
