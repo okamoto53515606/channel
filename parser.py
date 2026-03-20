@@ -7,7 +7,7 @@ DISPLAY_NAMES = {
     "claude_engineer": "クロード（辛口エンジニア）",
     "gpt_tax_advisor": "GPT（税理士）",
     "gemini_mother": "Gemini（お母さん）",
-    "claude_summarizer": "クロード（まとめ役）",
+    "claude_summarizer": "まとめ役",
 }
 
 
