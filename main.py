@@ -207,7 +207,7 @@ def run_single_agent(article_url: str):
 # Phase 2-3: Graph 自律議論
 # =====================================================================
 def run_swarm(article_url: str):
-    """4ノードGraphで決定論的議論（claude→gpt→gemini→まとめ）。"""
+    """3ノードGraph（claude→gpt→gemini）＋まとめ役を全出力で呼び出し。"""
     logger.info("=== Phase 2-3: Graph 自律議論 ===")
 
     agents = create_agents()
@@ -217,15 +217,14 @@ def run_swarm(article_url: str):
     opener = make_thread_opener(article)
     thread_date = datetime.now(JST).strftime("%Y-%m-%d")
 
+    # --- 3ノードGraph（claude→gpt→gemini） ---
     builder = GraphBuilder()
     n_claude = builder.add_node(agents["claude_engineer"], "claude_engineer")
     n_gpt = builder.add_node(agents["gpt_tax_advisor"], "gpt_tax_advisor")
     n_gemini = builder.add_node(agents["gemini_mother"], "gemini_mother")
-    n_summary = builder.add_node(agents["claude_summarizer"], "claude_summarizer")
 
     builder.add_edge(n_claude, n_gpt)
     builder.add_edge(n_gpt, n_gemini)
-    builder.add_edge(n_gemini, n_summary)
 
     builder.set_execution_timeout(3000.0)   # 50分
     builder.set_node_timeout(1200.0)        # 20分/ノード
@@ -251,6 +250,43 @@ def run_swarm(article_url: str):
     print(f"Completed: {result.completed_nodes}/{result.total_nodes}")
     print("=" * 60)
 
+    # --- Graph結果パース ---
+    posts = parse_graph_output(result)
+
+    # --- まとめ役: 全3エージェントの出力を渡して呼び出す ---
+    all_outputs = []
+    for node in result.execution_order:
+        node_result = result.results.get(node.node_id)
+        if node_result and node_result.result:
+            all_outputs.append(str(node_result.result))
+    combined = "\n\n".join(all_outputs)
+
+    summarizer = agents["claude_summarizer"]
+    summary_prompt = (
+        f"以下は3人のAIレビュアーの書き込みです。\n"
+        f"これを読んで、まとめ役として書き込みを作成してください。\n\n"
+        f"スレ主（okamo）の書き込み:\n{opener}\n\n"
+        f"--- レビュアーの書き込み ---\n{combined}\n\n"
+        f"レス番号 {len(posts) + 2} から書き始めてください。"
+    )
+
+    logger.info("=== まとめ役を呼び出し ===")
+    summary_result = summarizer(summary_prompt)
+    summary_text = str(summary_result)
+
+    print("-" * 60)
+    print("まとめ役の出力:")
+    print(summary_text)
+    print("=" * 60)
+
+    # まとめ役の出力をパースして追加
+    summary_posts = parse_agent_output(summary_text, "claude_summarizer")
+    next_number = len(posts) + 2  # posts は 002 から始まるので
+    for post in summary_posts:
+        post["post_number"] = str(next_number).zfill(3)
+        next_number += 1
+        posts.append(post)
+
     # --- DynamoDB保存 ---
     # >>1 スレ主(okamo) を保存
     save_post(
@@ -266,7 +302,6 @@ def run_swarm(article_url: str):
     logger.info("Saved opener as post 001")
 
     # 各AIの書き込みを保存
-    posts = parse_graph_output(result)
     for post in posts:
         save_post(
             thread_date=thread_date,
