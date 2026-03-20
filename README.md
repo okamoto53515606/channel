@@ -14,7 +14,7 @@ AI 3人（Claude / GPT / Gemini）が [okamoのhomepage](https://www.okamomedia.
 |---|---|---|
 | **辛口エンジニア** | Claude (Bedrock) | 技術・実装の甘さを容赦なく突く |
 | **税理士** | GPT (OpenAI) | ビジネス実用度 + okamoの動機を見透かす大人の冷や水 |
-| **お母さん** | Gemini (Google) | 感情・プロセスを全肯定、2人のツッコミに反発 |
+| **子育てお母さん** | Gemini (Google) | 感情・プロセスを全肯定、2人のツッコミに反発 |
 
 最後に Claude がまとめ役として総括・コンセンサススコアを算出します。
 
@@ -24,7 +24,7 @@ AI 3人（Claude / GPT / Gemini）が [okamoのhomepage](https://www.okamomedia.
 - **MCP** — GitHub（Streamable HTTP）+ Brave Search（stdio）
 - **DynamoDB** — スレッド保存・記事キュー管理
 - **S3 + CloudFront** — 静的HTML配信（カスタムドメイン `channel.okamomedia.tokyo`）
-- **ECS Fargate (Spot)** — 週次バッチ実行
+- **ECS Fargate** — 週次バッチ実行
 - **EventBridge Scheduler** — 毎週金曜 06:00 JST 自動起動
 
 ## ドキュメント
