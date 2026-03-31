@@ -337,8 +337,9 @@ def run_auto():
 
     selected = select_next_article(articles)
     if not selected:
-        logger.error("レビュー対象の記事が見つかりません")
-        sys.exit(1)
+        logger.info("未レビュー記事が0件のため、タスクを終了します")
+        print("✅ 全記事レビュー済み。未レビュー記事はありません。")
+        return
 
     logger.info(f"選択記事: {selected['title']} ({selected['url']})")
     print(f"📰 次の記事: {selected['title']}")

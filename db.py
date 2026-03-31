@@ -86,11 +86,14 @@ def select_next_article(articles: list[dict]) -> dict | None:
     if not all_items:
         return None
 
-    all_items.sort(key=lambda i: (
-        i.get("last_reviewed", ""),       # 未レビュー（空文字）が最優先
-        i.get("published_date", ""),       # 同率なら公開日が古い方
-    ))
-    selected = all_items[0]
+    # 未レビュー記事のみ対象（review_count が 0 または last_reviewed が未設定）
+    unreviewed = [i for i in all_items if not i.get("last_reviewed")]
+
+    if not unreviewed:
+        return None
+
+    unreviewed.sort(key=lambda i: i.get("published_date", ""))
+    selected = unreviewed[0]
     return {
         "slug": selected["article_id"],
         "title": selected.get("article_title", ""),
