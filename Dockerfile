@@ -27,8 +27,8 @@ RUN pip install --no-cache-dir . 2>/dev/null || pip install --no-cache-dir \
 COPY main.py prompts.py tools.py db.py parser.py publish.py ./
 COPY templates/ ./templates/
 
-# npx の @anthropic-ai/brave-search-mcp を事前キャッシュ
-RUN npx -y @anthropic-ai/brave-search-mcp --help 2>/dev/null || true
+# npx の @brave/brave-search-mcp-server を事前キャッシュ
+RUN npx -y @brave/brave-search-mcp-server --help 2>/dev/null || true
 
 # Fargate は .env 不要（環境変数＋Secrets Manager）
 # ローカルでは .env をマウント or --env-file で渡す
