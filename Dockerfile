@@ -24,7 +24,8 @@ RUN pip install --no-cache-dir . 2>/dev/null || pip install --no-cache-dir \
     jinja2
 
 # アプリケーションコード
-COPY main.py prompts.py tools.py db.py parser.py publish.py ./
+COPY main.py tools.py db.py parser.py publish.py ./
+COPY prompts/ ./prompts/
 COPY templates/ ./templates/
 
 # npx の @brave/brave-search-mcp-server を事前キャッシュ

@@ -101,6 +101,26 @@ def create_brave_mcp() -> MCPClient:
     ))
 
 
+def create_aws_knowledge_mcp() -> MCPClient:
+    """AWS Knowledge MCP（Streamable HTTP）"""
+    return MCPClient(
+        lambda: streamablehttp_client(
+            url="https://knowledge-mcp.global.api.aws",
+        )
+    )
+
+
+def create_google_developer_mcp() -> MCPClient:
+    """Google Developer Knowledge MCP（Streamable HTTP）"""
+    api_key = get_env("GOOGLE_DEVELOPER_KNOWLEDGE_API_KEY")
+    return MCPClient(
+        lambda: streamablehttp_client(
+            url="https://developerknowledge.googleapis.com/mcp",
+            headers={"X-Goog-Api-Key": api_key},
+        )
+    )
+
+
 def build_common_tools() -> list:
     """全エージェント共通ツール"""
     return [
@@ -118,12 +138,14 @@ def create_agents() -> dict[str, Agent]:
     common_tools = build_common_tools()
     github_mcp = create_github_mcp()
     brave_mcp = create_brave_mcp()
+    aws_knowledge_mcp = create_aws_knowledge_mcp()
+    google_developer_mcp = create_google_developer_mcp()
 
     claude_engineer = Agent(
         name="claude_engineer",
         model=create_claude_model(),
         system_prompt=CLAUDE_SYSTEM_PROMPT,
-        tools=[*common_tools, github_mcp, brave_mcp],
+        tools=[*common_tools, github_mcp, brave_mcp, aws_knowledge_mcp, google_developer_mcp],
     )
 
     gpt_tax_advisor = Agent(
