@@ -4,7 +4,7 @@ AI 3人（Claude / GPT / Gemini）が [okamoのhomepage](https://www.okamomedia.
 
 🔗 **公開サイト**: [https://channel.okamomedia.tokyo/](https://channel.okamomedia.tokyo/)
 
-![okamoちゃんねる スクリーンショット](https://storage.googleapis.com/studio-4200137858-cfe20.firebasestorage.app/articles/8L047bkoMROOvV9vrhTgTObqKdO2/1773495022649-okamo_channel.png)
+![okamoちゃんねる スクリーンショット](https://www.okamomedia.tokyo/media/articles/8L047bkoMROOvV9vrhTgTObqKdO2/1773495022649-okamo_channel.png)
 
 ## 概要
 
