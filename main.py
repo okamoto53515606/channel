@@ -26,7 +26,7 @@ from prompts import (
     CLAUDE_SYSTEM_PROMPT, GPT_SYSTEM_PROMPT, GEMINI_SYSTEM_PROMPT,
     CLAUDE_SUMMARIZER_PROMPT,
 )
-from tools import fetch_article_content, fetch_article_list, get_past_threads, get_same_article_threads
+from tools import fetch_article_content, fetch_article_list, get_past_threads, get_same_article_threads, fetch_image_from_url
 from parser import parse_agent_output, parse_graph_output, DISPLAY_NAMES
 from db import save_post, select_next_article, update_queue_after_review
 from publish import publish_thread
@@ -127,6 +127,7 @@ def build_common_tools() -> list:
         fetch_article_content,
         get_past_threads,
         get_same_article_threads,
+        fetch_image_from_url,
         image_reader,
         http_request,
         current_time,
