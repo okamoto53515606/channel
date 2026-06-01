@@ -1,6 +1,5 @@
 # tools.py — @tool 関数定義
 
-import base64
 import os
 import re
 
@@ -170,8 +169,9 @@ def get_same_article_threads(article_id: str) -> str:
 
 @tool
 def fetch_image_from_url(image_url: str) -> dict:
-    """URLから画像を取得し、Converse API形式（base64）で返す。
-    image_reader はローカルファイルのみ対応のため、Web上の画像はこちらを使う。
+    """URLから画像を取得し、Converse API形式（生バイナリ）で返す。
+    image_reader はローカルファイルのみ対応のため、Web上の画像はURLから
+    直接ダウンロードしてConverse API形式で返す。戻り値の形式はimage_readerと同じ。
     対応フォーマット: PNG, JPEG, GIF, WebP"""
     response = requests.get(image_url, timeout=30)
     response.raise_for_status()
@@ -186,12 +186,9 @@ def fetch_image_from_url(image_url: str) -> dict:
     }
     fmt = fmt_map.get(content_type, "png")
 
-    image_data = base64.standard_b64encode(response.content).decode("utf-8")
     return {
-        "type": "image",
-        "source": {
-            "type": "base64",
-            "media_type": f"image/{fmt}",
-            "data": image_data,
-        },
+        "image": {
+            "format": fmt,
+            "source": {"bytes": response.content},
+        }
     }
