@@ -20,7 +20,7 @@ from strands.multiagent.graph import GraphBuilder
 from strands.tools.mcp import MCPClient
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.stdio import stdio_client, StdioServerParameters
-from strands_tools import image_reader, http_request, current_time
+from strands_tools import http_request, current_time
 
 from prompts import (
     CLAUDE_SYSTEM_PROMPT, GPT_SYSTEM_PROMPT, GEMINI_SYSTEM_PROMPT,
@@ -128,7 +128,6 @@ def build_common_tools() -> list:
         get_past_threads,
         get_same_article_threads,
         fetch_image_from_url,
-        image_reader,
         http_request,
         current_time,
     ]
