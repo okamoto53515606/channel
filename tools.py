@@ -171,24 +171,34 @@ def get_same_article_threads(article_id: str) -> str:
 def fetch_image_from_url(image_url: str) -> dict:
     """URLから画像を取得し、Converse API形式（生バイナリ）で返す。
     image_reader はローカルファイルのみ対応のため、Web上の画像はURLから
-    直接ダウンロードしてConverse API形式で返す。戻り値の形式はimage_readerと同じ。
+    直接ダウンロードして一時ファイルに保存し、image_reader に渡す。
+    image_reader が PIL でフォーマット検出と変換を行う。
     対応フォーマット: PNG, JPEG, GIF, WebP"""
+    import tempfile
+    from strands_tools import image_reader as _image_reader_module
+    _image_reader = _image_reader_module.image_reader
+
+    content_type = ""
     response = requests.get(image_url, timeout=30)
     response.raise_for_status()
-
     content_type = response.headers.get("Content-Type", "image/png").split(";")[0].strip()
-    fmt_map = {
-        "image/png": "png",
-        "image/jpeg": "jpeg",
-        "image/jpg": "jpeg",
-        "image/gif": "gif",
-        "image/webp": "webp",
-    }
-    fmt = fmt_map.get(content_type, "png")
 
-    return {
-        "image": {
-            "format": fmt,
-            "source": {"bytes": response.content},
-        }
+    ext_map = {
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/gif": ".gif",
+        "image/webp": ".webp",
     }
+    ext = ext_map.get(content_type, ".png")
+
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as f:
+        f.write(response.content)
+        tmp_path = f.name
+
+    try:
+        result = _image_reader({"toolUseId": "tmp", "input": {"image_path": tmp_path}})
+    finally:
+        os.unlink(tmp_path)
+
+    return result
