@@ -57,6 +57,10 @@ def fetch_all_threads() -> list[dict]:
     table = _get_threads_table()
     resp = table.scan()
     items = resp["Items"]
+    # DynamoDB scan はページネーションが必要（1MB超で LastEvaluatedKey が返る）
+    while "LastEvaluatedKey" in resp:
+        resp = table.scan(ExclusiveStartKey=resp["LastEvaluatedKey"])
+        items.extend(resp["Items"])
 
     # 日付ごとにグループ化
     threads_map: dict[str, dict] = {}
