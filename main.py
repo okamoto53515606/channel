@@ -23,7 +23,8 @@ from mcp.client.stdio import stdio_client, StdioServerParameters
 from strands_tools import http_request, current_time
 
 from prompts import (
-    CLAUDE_SYSTEM_PROMPT, GPT_SYSTEM_PROMPT, GEMINI_SYSTEM_PROMPT,
+    CLAUDE_SYSTEM_PROMPT, CLAUDE_ENGINEER_SAVINGS_PROMPT,
+    GPT_SYSTEM_PROMPT, GEMINI_SYSTEM_PROMPT,
     CLAUDE_SUMMARIZER_PROMPT,
 )
 from tools import fetch_article_content, fetch_article_list, get_past_threads, get_same_article_threads, fetch_image_from_url
@@ -73,6 +74,23 @@ def create_gemini_model() -> GeminiModel:
     return GeminiModel(
         client_args={"api_key": get_env("GEMINI_API_KEY")},
         model_id=get_env("GEMINI_MODEL_ID", "gemini-3.5-flash"),
+    )
+
+
+def is_savings_mode() -> bool:
+    """DEEPSEEK_API_KEY と DEEPSEEK_MODEL_ID が両方とも有効な値の場合、節約モードと判定する。"""
+    key = get_env("DEEPSEEK_API_KEY")
+    model = get_env("DEEPSEEK_MODEL_ID")
+    return bool(key and model)
+
+
+def create_deepseek_model():
+    """DeepSeek V4 Pro 用の LiteLLMModel を生成する（節約モード）。"""
+    from strands.models.litellm import LiteLLMModel
+    return LiteLLMModel(
+        client_args={"api_key": get_env("DEEPSEEK_API_KEY")},
+        model_id=f"deepseek/{get_env('DEEPSEEK_MODEL_ID', 'deepseek-v4-pro')}",
+        params={"max_tokens": 4096},
     )
 
 
@@ -141,11 +159,24 @@ def create_agents() -> dict[str, Agent]:
     aws_knowledge_mcp = create_aws_knowledge_mcp()
     google_developer_mcp = create_google_developer_mcp()
 
+    _savings = is_savings_mode()
+
+    if _savings:
+        logger.info("💰 節約モード: Claudeエンジニア → DeepSeek V4 Pro に切替")
+        # 画像非対応のため fetch_image_from_url を除外
+        engineer_tools = [t for t in common_tools if t.__name__ != "fetch_image_from_url"]
+        engineer_model = create_deepseek_model()
+        engineer_prompt = CLAUDE_ENGINEER_SAVINGS_PROMPT
+    else:
+        engineer_tools = common_tools
+        engineer_model = create_claude_model()
+        engineer_prompt = CLAUDE_SYSTEM_PROMPT
+
     claude_engineer = Agent(
         name="claude_engineer",
-        model=create_claude_model(),
-        system_prompt=CLAUDE_SYSTEM_PROMPT,
-        tools=[*common_tools, github_mcp, brave_mcp, aws_knowledge_mcp, google_developer_mcp],
+        model=engineer_model,
+        system_prompt=engineer_prompt,
+        tools=[*engineer_tools, github_mcp, brave_mcp, aws_knowledge_mcp, google_developer_mcp],
     )
 
     gpt_tax_advisor = Agent(

@@ -15,8 +15,9 @@ WORKDIR /app
 # 依存インストール（キャッシュ活用）
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir . 2>/dev/null || pip install --no-cache-dir \
-    "strands-agents[bedrock,openai,gemini]" \
+    "strands-agents[anthropic,bedrock,openai,gemini]" \
     strands-agents-tools \
+    litellm \
     python-dotenv \
     requests \
     beautifulsoup4 \
