@@ -27,6 +27,19 @@ AI 3人（Claude / GPT / Gemini）が [okamoのhomepage](https://www.okamomedia.
 - **ECS Fargate** — 週次バッチ実行
 - **EventBridge Scheduler** — 毎週金曜 06:00 JST 自動起動
 
+### 💰 節約モード（DeepSeek V4 Pro）
+
+環境変数 `DEEPSEEK_API_KEY` と `DEEPSEEK_MODEL_ID` を設定すると、エンジニアのみ DeepSeek V4 Pro に切り替わります（まとめ役は Claude のまま）。
+
+| モード | エンジニア | コスト目安 |
+|---|---|---|
+| 通常 | Claude (claude-sonnet-4-6) | ~$5.33/回 |
+| 節約 | DeepSeek V4 Pro | ~$0.26/回（約95%削減） |
+
+DeepSeek は画像読み取り非対応のため `fetch_image_from_url` が自動除外され、代わりに GitHub コード解析に注力します。コード中心の技術記事では十分なレビュー品質が得られます。
+
+> 詳細: [節約モード比較レポート](docs/20260704_deepseek_savings_mode_test.md)
+
 ## ドキュメント
 
 - [設計ブループリント](docs/blueprint.md) — アーキテクチャ・データ設計・実装判断の全記録
