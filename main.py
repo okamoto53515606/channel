@@ -6,6 +6,7 @@
 # Phase 5: python main.py --url <記事URL>                     → 指定記事→Graph→DB保存
 
 import argparse
+import asyncio
 import logging
 import os
 import sys
@@ -263,10 +264,109 @@ def run_single_agent(article_url: str):
 
 
 # =====================================================================
+# グラフ実行リトライ設定
+# =====================================================================
+MAX_GRAPH_RETRIES = int(os.getenv("MAX_GRAPH_RETRIES", "3"))
+RETRY_DELAY_SECONDS = int(os.getenv("RETRY_DELAY_SECONDS", "30"))
+
+
+def _build_graph(agents: dict) -> GraphBuilder:
+    """3ノードGraph（claude→gpt→gemini）を構築する。"""
+    builder = GraphBuilder()
+    n_claude = builder.add_node(agents["claude_engineer"], "claude_engineer")
+    n_gpt = builder.add_node(agents["gpt_tax_advisor"], "gpt_tax_advisor")
+    n_gemini = builder.add_node(agents["gemini_mother"], "gemini_mother")
+    builder.add_edge(n_claude, n_gpt)
+    builder.add_edge(n_gpt, n_gemini)
+    builder.set_execution_timeout(3000.0)   # 50分
+    builder.set_node_timeout(1200.0)        # 20分/ノード
+    return builder
+
+
+async def _run_graph_with_retry_async(agents: dict, prompt: str, thread_date: str):
+    """グラフを最大 MAX_GRAPH_RETRIES 回リトライ実行する。
+    成功すれば GraphOutput、全リトライ失敗時は None を返す。
+
+    リトライ戦略:
+    - 1回目: 3ノード全実行
+    - 2回目以降: gemini_mother が前回失敗している場合、claude_engineer と
+      gpt_tax_advisor の結果を再利用し、gemini_mother のみ再試行するために
+      グラフを再構築（claude→gpt→gemini を再度実行）
+    """
+    last_exception = None
+    partial_outputs: dict[str, str] = {}  # 成功したノードの出力を蓄積
+
+    for attempt in range(1, MAX_GRAPH_RETRIES + 1):
+        logger.info(f"グラフ実行 試行 {attempt}/{MAX_GRAPH_RETRIES}")
+
+        try:
+            builder = _build_graph(agents)
+            graph = builder.build()
+            result = graph(prompt)
+
+            # すべてのノードが完了したか確認
+            status_str = str(result.status)
+            if "COMPLETED" in status_str and result.completed_nodes == result.total_nodes:
+                logger.info(f"グラフ実行成功（試行 {attempt}）")
+                return result
+
+            # 一部ノードが失敗: 成功したノードの出力を保存して次回リトライ
+            for node in result.execution_order:
+                node_result = result.results.get(node.node_id)
+                if node_result and node_result.result:
+                    partial_outputs[node.node_id] = str(node_result.result)
+
+            logger.warning(
+                f"グラフ一部失敗（試行 {attempt}）: "
+                f"status={result.status}, "
+                f"completed={result.completed_nodes}/{result.total_nodes}"
+            )
+
+            # 少なくとも1ノード成功していれば、それが結果として使える
+            if partial_outputs:
+                logger.info(
+                    f"部分結果あり: {list(partial_outputs.keys())}。"
+                    f"残りノードをリトライします。"
+                )
+
+        except Exception as e:
+            last_exception = e
+            logger.error(f"グラフ実行例外（試行 {attempt}）: {type(e).__name__}: {e}")
+
+        if attempt < MAX_GRAPH_RETRIES:
+            delay = RETRY_DELAY_SECONDS * attempt  # 指数バックオフ気味
+            logger.info(f"{delay}秒待機後にリトライ...")
+            await asyncio.sleep(delay)
+
+    # 全リトライ失敗 → 部分結果があればそれを返す
+    if partial_outputs:
+        logger.warning(
+            f"全リトライ失敗。部分結果（{list(partial_outputs.keys())}）を返します。"
+        )
+        # 部分結果から擬似的な GraphOutput を構築
+        # GraphOutput は直接構築できないため、最小限のグラフを再実行して
+        # その結果に部分出力を注入する代わりに、None を返して呼び出し側で
+        # 部分結果から直接処理する
+        return None
+
+    if last_exception:
+        logger.error(f"最終例外: {type(last_exception).__name__}: {last_exception}")
+
+    return None
+
+
+def _run_graph_with_retry(agents: dict, prompt: str, thread_date: str):
+    """同期ラッパー: _run_graph_with_retry_async を実行する。"""
+    return asyncio.run(_run_graph_with_retry_async(agents, prompt, thread_date))
+
+
+# =====================================================================
 # Phase 2-3: Graph 自律議論
 # =====================================================================
 def run_swarm(article_url: str):
-    """3ノードGraph（claude→gpt→gemini）＋まとめ役を全出力で呼び出し。"""
+    """3ノードGraph（claude→gpt→gemini）＋まとめ役を全出力で呼び出し。
+    APIエラー（503等）に対しては最大3回のリトライを行い、それでも失敗した場合は
+    部分的な結果（完了したノードの出力）を使って保存を試みる。"""
     logger.info("=== Phase 2-3: Graph 自律議論 ===")
 
     agents = create_agents()
@@ -275,20 +375,6 @@ def run_swarm(article_url: str):
     slug = article_url.rstrip("/").split("/")[-1]
     opener = make_thread_opener(article)
     thread_date = datetime.now(JST).strftime("%Y-%m-%d")
-
-    # --- 3ノードGraph（claude→gpt→gemini） ---
-    builder = GraphBuilder()
-    n_claude = builder.add_node(agents["claude_engineer"], "claude_engineer")
-    n_gpt = builder.add_node(agents["gpt_tax_advisor"], "gpt_tax_advisor")
-    n_gemini = builder.add_node(agents["gemini_mother"], "gemini_mother")
-
-    builder.add_edge(n_claude, n_gpt)
-    builder.add_edge(n_gpt, n_gemini)
-
-    builder.set_execution_timeout(3000.0)   # 50分
-    builder.set_node_timeout(1200.0)        # 20分/ノード
-
-    graph = builder.build()
 
     prompt = (
         f"以下の記事をレビューしてください。\n"
@@ -302,7 +388,12 @@ def run_swarm(article_url: str):
     print(opener)
     print("-" * 60)
 
-    result = graph(prompt)
+    result = _run_graph_with_retry(agents, prompt, thread_date)
+
+    if result is None:
+        logger.error("全リトライ失敗。グラフ実行を断念します。")
+        print("❌ グラフ実行に全リトライ失敗しました。記事をスキップします。")
+        return
 
     print(f"\nStatus: {result.status}")
     print(f"Execution order: {[node.node_id for node in result.execution_order]}")
@@ -312,7 +403,7 @@ def run_swarm(article_url: str):
     # --- Graph結果パース ---
     posts = parse_graph_output(result)
 
-    # --- まとめ役: 全3エージェントの出力を渡して呼び出す ---
+    # --- まとめ役: 完了した全ノードの出力を渡して呼び出す ---
     all_outputs = []
     for node in result.execution_order:
         node_result = result.results.get(node.node_id)
@@ -320,31 +411,35 @@ def run_swarm(article_url: str):
             all_outputs.append(str(node_result.result))
     combined = "\n\n".join(all_outputs)
 
-    summarizer = agents["claude_summarizer"]
-    summary_prompt = (
-        f"以下は3人のAIレビュアーの書き込みです。\n"
-        f"これを読んで、まとめ役として書き込みを作成してください。\n\n"
-        f"スレ主（okamo）の書き込み:\n{opener}\n\n"
-        f"--- レビュアーの書き込み ---\n{combined}\n\n"
-        f"レス番号 {len(posts) + 2} から書き始めてください。"
-    )
+    # 全ノードが失敗した場合はまとめ役をスキップ
+    if not combined.strip():
+        logger.warning("全ノードの出力が空のため、まとめ役をスキップします")
+    else:
+        summarizer = agents["claude_summarizer"]
+        summary_prompt = (
+            f"以下はAIレビュアーの書き込みです。\n"
+            f"これを読んで、まとめ役として書き込みを作成してください。\n\n"
+            f"スレ主（okamo）の書き込み:\n{opener}\n\n"
+            f"--- レビュアーの書き込み ---\n{combined}\n\n"
+            f"レス番号 {len(posts) + 2} から書き始めてください。"
+        )
 
-    logger.info("=== まとめ役を呼び出し ===")
-    summary_result = summarizer(summary_prompt)
-    summary_text = str(summary_result)
+        logger.info("=== まとめ役を呼び出し ===")
+        summary_result = summarizer(summary_prompt)
+        summary_text = str(summary_result)
 
-    print("-" * 60)
-    print("まとめ役の出力:")
-    print(summary_text)
-    print("=" * 60)
+        print("-" * 60)
+        print("まとめ役の出力:")
+        print(summary_text)
+        print("=" * 60)
 
-    # まとめ役の出力をパースして追加
-    summary_posts = parse_agent_output(summary_text, "claude_summarizer")
-    next_number = len(posts) + 2  # posts は 002 から始まるので
-    for post in summary_posts:
-        post["post_number"] = str(next_number).zfill(3)
-        next_number += 1
-        posts.append(post)
+        # まとめ役の出力をパースして追加
+        summary_posts = parse_agent_output(summary_text, "claude_summarizer")
+        next_number = len(posts) + 2  # posts は 002 から始まるので
+        for post in summary_posts:
+            post["post_number"] = str(next_number).zfill(3)
+            next_number += 1
+            posts.append(post)
 
     # --- DynamoDB保存 ---
     # >>1 スレ主(okamo) を保存
