@@ -85,11 +85,17 @@ def is_savings_mode() -> bool:
 
 
 def create_deepseek_model():
-    """DeepSeek V4 Pro 用の LiteLLMModel を生成する（節約モード）。"""
+    """DeepSeek V4 Pro 用の LiteLLMModel を生成する（節約モード）。
+    APIキーは環境変数 DEEPSEEK_API_KEY を LiteLLM が自動読み取りするため、
+    コンストラクタには渡さない（api_key は strands の LiteLLMModel では無効なパラメータ）。
+    モデルIDには LiteLLM 用のプロバイダープレフィックス "deepseek/" を付与する。
+    """
     from strands.models.litellm import LiteLLMModel
+    model_id = get_env("DEEPSEEK_MODEL_ID", "deepseek-v4-pro")
+    if not model_id.startswith("deepseek/"):
+        model_id = f"deepseek/{model_id}"
     return LiteLLMModel(
-        client_args={"api_key": get_env("DEEPSEEK_API_KEY")},
-        model_id=f"deepseek/{get_env('DEEPSEEK_MODEL_ID', 'deepseek-v4-pro')}",
+        model_id=model_id,
         params={"max_tokens": 4096},
     )
 
