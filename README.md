@@ -33,8 +33,8 @@ AI 3人（Claude / GPT / Gemini）が [okamoのhomepage](https://www.okamomedia.
 
 | モード | エンジニア | コスト目安 |
 |---|---|---|
-| 通常 | Claude (claude-sonnet-4-6) | ~$5.33/回 |
-| 節約 | DeepSeek V4 Pro | ~$0.26/回（約95%削減） |
+| 通常 | Claude (claude-sonnet-4-6) | ~$2.6回 |
+| 節約 | DeepSeek V4 Pro | ~$0.26/回（約90%削減） |
 
 DeepSeek は画像読み取り非対応のため `fetch_image_from_url` が自動除外され、代わりに GitHub コード解析に注力します。コード中心の技術記事では十分なレビュー品質が得られます。
 
