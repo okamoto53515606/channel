@@ -29,7 +29,9 @@ AI 3人（Claude / GPT / Gemini）が [okamoのhomepage](https://www.okamomedia.
 
 ### 💰 節約モード（DeepSeek V4 Pro）
 
-環境変数 `DEEPSEEK_API_KEY` と `DEEPSEEK_MODEL_ID` を設定すると、エンジニアのみ DeepSeek V4 Pro に切り替わります（まとめ役は Claude のまま）。
+環境変数 `DEEPSEEK_API_KEY` と `DEEPSEEK_MODEL_ID` が両方とも有効な値の場合、エンジニアのみ DeepSeek V4 Pro に切り替わります（まとめ役は Claude のまま）。
+
+本番環境では `DEEPSEEK_API_KEY` は Secrets Manager（`okamo-channel/secrets`）経由で注入され、`DEEPSEEK_MODEL_ID` はタスク定義の環境変数として常に設定済みです。そのためタスク定義を更新しなくても、Secrets Manager 側の `DEEPSEEK_API_KEY` の値（空文字 ⇔ 実際のキー）を書き換えるだけで、次回のバッチ実行から節約モードのON/OFFを切り替えられます（キー自体を削除するとタスク起動に失敗するため、値を空文字にしてください）。
 
 | モード | エンジニア | コスト目安 |
 |---|---|---|
