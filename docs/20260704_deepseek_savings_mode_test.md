@@ -2,7 +2,8 @@
 
 **テスト日**: 2026-07-04
 **対象記事**: [claude-fable5-ai-site-operation-day1](https://www.okamomedia.tokyo/articles/claude-fable5-ai-site-operation-day1)
-**比較対象**: 2026-07-03 本番実行（全Claude）vs 2026-07-04 節約モードテスト
+**比較対象**: [2026-07-03 本番実行（全Claude）](https://channel.okamomedia.tokyo/threads/2026-07-03/) 
+vs [2026-07-04 節約モードテスト](https://channel.okamomedia.tokyo/threads/2026-07-04/)
 
 ---
 
