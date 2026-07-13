@@ -114,6 +114,6 @@ vs [2026-07-04 節約モードテスト](https://channel.okamomedia.tokyo/thread
 | 項目 | 状態 |
 |---|---|
 | DynamoDB (2026-07-04) | ✅ 全5件削除済み |
-| S3 HTML (2026-07-04) | 🔒 保持（比較用） |
+| [S3 HTML (2026-07-04)](https://channel.okamomedia.tokyo/threads/2026-07-04/) | 🔒 保持（比較用） |
 | CloudFront | 変更なし（invalidation スキップ） |
-| 本番2026-07-03データ | 🔒 影響なし |
+| [本番2026-07-03データ](https://channel.okamomedia.tokyo/threads/2026-07-03/) | 🔒 影響なし |
