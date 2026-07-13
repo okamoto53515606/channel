@@ -63,7 +63,6 @@ vs [2026-07-04 節約モードテスト](https://channel.okamomedia.tokyo/thread
 | 🔴 **settings.py のハードコード** | CloudFront Distribution ID + Secrets Manager ARN（アカウントID `210387976006` 直書き）を発見。Claudeは見落としていた |
 | 🔴 **Fargateコスト不透明** | 「月額9,300円の絶対予算枠」がLLM費用のみで、Fargate費用が別腹である点を指摘 |
 | 🔴 **GA4 MCP デフォルトfalse** | 記事ではGA4分析している風だがコード上は環境変数でONが必要と指摘 |
-| 🟡 **Claude Sonnet 5のフィクション性** | 「2026年7月時点でSonnet 5は実在しない。SF設定として面白い」とメタ視点 |
 
 ### 4.3 Claudeが優位だった点
 
