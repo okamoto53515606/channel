@@ -117,14 +117,3 @@ vs [2026-07-04 節約モードテスト](https://channel.okamomedia.tokyo/thread
 | S3 HTML (2026-07-04) | 🔒 保持（比較用） |
 | CloudFront | 変更なし（invalidation スキップ） |
 | 本番2026-07-03データ | 🔒 影響なし |
-
----
-
-## 8. 戻し方
-
-`.env` から以下の2行を削除すれば即座に元の全Claudeモードに戻る：
-
-```bash
-DEEPSEEK_MODEL_ID="deepseek-v4-pro"
-DEEPSEEK_API_KEY="sk-..."
-```
