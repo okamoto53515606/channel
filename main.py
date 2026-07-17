@@ -67,7 +67,7 @@ def create_claude_model() -> AnthropicModel:
 def create_openai_model() -> OpenAIModel:
     return OpenAIModel(
         client_args={"api_key": get_env("OPENAI_API_KEY")},
-        model_id=get_env("OPEN_AI_MODEL_ID", "gpt-5.4"),
+        model_id=get_env("OPEN_AI_MODEL_ID", "gpt-5.6-terra"),
     )
 
 
