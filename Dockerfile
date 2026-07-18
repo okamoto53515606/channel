@@ -18,6 +18,8 @@ RUN pip install --no-cache-dir . 2>/dev/null || pip install --no-cache-dir \
     "strands-agents[anthropic,bedrock,openai,gemini]" \
     strands-agents-tools \
     litellm \
+    fastapi \
+    orjson \
     python-dotenv \
     requests \
     beautifulsoup4 \
