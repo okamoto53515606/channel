@@ -15,7 +15,7 @@ from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from strands import Agent
 from strands.models.anthropic import AnthropicModel
-from strands.models.openai import OpenAIModel
+from strands.models.openai_responses import OpenAIResponsesModel
 from strands.models.gemini import GeminiModel
 from strands.multiagent.graph import GraphBuilder
 from strands.tools.mcp import MCPClient
@@ -64,10 +64,15 @@ def create_claude_model() -> AnthropicModel:
     )
 
 
-def create_openai_model() -> OpenAIModel:
-    return OpenAIModel(
+def create_openai_model() -> OpenAIResponsesModel:
+    """GPT税理士用。gpt-5.6-terra は Chat Completions API で
+    reasoning_effort + function tools が併用不可なため、
+    OpenAI Responses API を使用する。
+    参照: https://github.com/okamoto53515606/akira/commit/d66fb4c
+    """
+    return OpenAIResponsesModel(
         client_args={"api_key": get_env("OPENAI_API_KEY")},
-        model_id=get_env("OPEN_AI_MODEL_ID", "gpt-5.4"),
+        model_id=get_env("OPEN_AI_MODEL_ID", "gpt-5.6-terra"),
     )
 
 
