@@ -79,7 +79,7 @@ def create_openai_model() -> OpenAIResponsesModel:
 def create_gemini_model() -> GeminiModel:
     return GeminiModel(
         client_args={"api_key": get_env("GEMINI_API_KEY")},
-        model_id=get_env("GEMINI_MODEL_ID", "gemini-3.5-flash"),
+        model_id=get_env("GEMINI_MODEL_ID", "gemini-3.6-flash"),
     )
 
 
