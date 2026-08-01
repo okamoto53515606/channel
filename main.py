@@ -100,9 +100,11 @@ def create_deepseek_model():
     model_id = get_env("DEEPSEEK_MODEL_ID", "deepseek-v4-pro")
     if not model_id.startswith("deepseek/"):
         model_id = f"deepseek/{model_id}"
+    # DeepSeek V4 Pro は最大 16,384 トークンまで出力可能（入力 128K）
+    # 記事レビューは長文になりやすいため、最大値に設定
     return LiteLLMModel(
         model_id=model_id,
-        params={"max_tokens": 4096},
+        params={"max_tokens": 16384},
     )
 
 
