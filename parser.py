@@ -1,6 +1,9 @@
 # parser.py — AI出力のパース
 
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 # poster_name → poster_display のマッピング
 DISPLAY_NAMES = {
@@ -99,9 +102,20 @@ def parse_graph_output(result) -> list[dict]:
         agent_name = node.node_id
         node_result = result.results.get(agent_name)
         if not node_result or not node_result.result:
+            logger.warning(f"agent=<{agent_name}> | no result found, skipping")
             continue
 
         text = str(node_result.result)
+        logger.info(
+            f"agent=<{agent_name}>, text_len=<{len(text)}>, "
+            f"result_type=<{type(node_result.result).__name__}>"
+        )
+        if not text.strip():
+            logger.warning(
+                f"agent=<{agent_name}> | EMPTY text! "
+                f"stop_reason=<{getattr(node_result.result, 'stop_reason', 'N/A')}>, "
+                f"content_keys=<{_get_content_keys(node_result.result)}>"
+            )
         posts = parse_agent_output(text, agent_name)
 
         for post in posts:
@@ -119,3 +133,17 @@ def _extract_score(text: str) -> int | None:
     if match:
         return int(match.group(1))
     return None
+
+
+def _get_content_keys(result) -> list[str]:
+    """AgentResult の message.content に含まれるキー一覧を取得（デバッグ用）。"""
+    try:
+        message = getattr(result, "message", {})
+        content = message.get("content", []) if isinstance(message, dict) else []
+        keys: set[str] = set()
+        for item in content:
+            if isinstance(item, dict):
+                keys.update(item.keys())
+        return sorted(keys)
+    except Exception:
+        return ["<error>"]
