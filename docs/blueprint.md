@@ -473,7 +473,7 @@ GEMINI_API_KEY="xxx"                           # Gemini（母ちゃん）エー�
 
 # --- モデル指定（Agent の model_id に渡す）---
 BEDROCK_MODEL_ID="us.anthropic.claude-opus-4-6-v1"  # Claude（辛口エンジニア）
-GEMINI_MODEL_ID="gemini-3.6-flash"            # Gemini（母ちゃん）
+GEMINI_MODEL_ID="gemini-3.7-flash"            # Gemini（母ちゃん）
 OPEN_AI_MODEL_ID="gpt-5.4"                          # GPT（税理士）
 
 # --- AWS ---
@@ -783,7 +783,7 @@ ECS Cluster: okamo-channel
                 ├── OPENAI_API_KEY: (Secrets Manager経由)
                 ├── GEMINI_API_KEY: (Secrets Manager経由)
                 ├── BEDROCK_MODEL_ID: us.anthropic.claude-opus-4-6-v1
-                ├── GEMINI_MODEL_ID: gemini-3.6-flash
+                ├── GEMINI_MODEL_ID: gemini-3.7-flash
                 ├── OPEN_AI_MODEL_ID: gpt-5.4
                 ├── PAST_THREAD_COUNT: 1
                 └── AWS_REGION: us-east-1
