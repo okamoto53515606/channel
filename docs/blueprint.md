@@ -281,7 +281,7 @@ GITHUB_PAT  = os.getenv("GITHUB_PAT_READ_ONLY_PUBLIC")  # GitHub Remote MCP 認�
 BRAVE_KEY   = os.getenv("BRAVE_API_KEY")                 # Brave Search MCP 認証
 # モデル指定（エージェントごとに異なるプロバイダ）
 BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-6-v1")
-GEMINI_MODEL_ID  = os.getenv("GEMINI_MODEL_ID",  "gemini-3.6-flash")
+GEMINI_MODEL_ID  = os.getenv("GEMINI_MODEL_ID",  "gemini-3.7-flash")
 OPENAI_MODEL_ID  = os.getenv("OPEN_AI_MODEL_ID", "gpt-5.4")
 # その他
 OPENAI_KEY  = os.getenv("OPENAI_API_KEY")   # GPT（税理士）用
