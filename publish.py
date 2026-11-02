@@ -253,6 +253,13 @@ def upload_css():
     upload_to_s3("site/assets/bbs.css", css_content, "text/css; charset=utf-8")
 
 
+def upload_favicon():
+    """favicon.svg を S3にアップロードする。"""
+    svg_path = TEMPLATES_DIR / "favicon.svg"
+    svg_content = svg_path.read_text(encoding="utf-8")
+    upload_to_s3("site/favicon.svg", svg_content, "image/svg+xml")
+
+
 # =====================================================================
 # CloudFront invalidation
 # =====================================================================
@@ -317,8 +324,9 @@ def publish_thread(thread_date: str):
         "application/json",
     )
 
-    # 7. CSS アップロード
+    # 7. CSS・favicon アップロード
     upload_css()
+    upload_favicon()
 
     # 8. スレッド一覧（index.html）再生成 → S3
     threads = fetch_all_threads()
@@ -330,6 +338,7 @@ def publish_thread(thread_date: str):
         f"/threads/{thread_date}/*",
         "/latest/*",
         "/index.html",
+        "/favicon.svg",
         "/",
     ])
 

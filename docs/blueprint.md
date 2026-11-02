@@ -688,6 +688,7 @@ s3://okamo-channel/                    ← us-east-1
   │
   ├── site/                            ← CloudFront が配信（静的HTML）
   │   ├── index.html                   ← スレッド一覧（トップページ）
+  │   ├── favicon.svg                  ← ファビコン（ひし形＋c）
   │   ├── threads/
   │   │   ├── 2026-03-12/
   │   │   │   └── index.html           ← BBS風スレッドHTML
