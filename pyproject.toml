@@ -6,6 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     "strands-agents[anthropic,bedrock,openai,gemini]",
     "strands-agents-tools",
+    # mcp 2.x removed the deprecated `streamablehttp_client` alias that
+    # strands-agents 1.48.0 and main.py import. Keep the 1.x line.
+    "mcp>=1.23,<2",
     "litellm",
     "fastapi",
     "orjson",

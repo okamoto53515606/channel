@@ -17,6 +17,7 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir . 2>/dev/null || pip install --no-cache-dir \
     "strands-agents[anthropic,bedrock,openai,gemini]" \
     strands-agents-tools \
+    "mcp>=1.23,<2" \
     litellm \
     fastapi \
     orjson \
