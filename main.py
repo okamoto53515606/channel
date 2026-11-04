@@ -19,7 +19,6 @@ from strands.models.openai_responses import OpenAIResponsesModel
 from strands.models.gemini import GeminiModel
 from strands.multiagent.graph import GraphBuilder
 from strands.tools.mcp import MCPClient
-from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.stdio import stdio_client, StdioServerParameters
 from strands_tools import http_request, current_time
 
@@ -115,10 +114,8 @@ def create_github_mcp() -> MCPClient:
     """GitHub MCP（Remote MCP / Streamable HTTP）"""
     pat = get_env("GITHUB_PAT_READ_ONLY_PUBLIC")
     return MCPClient(
-        lambda: streamablehttp_client(
-            url="https://api.githubcopilot.com/mcp/",
-            headers={"Authorization": f"Bearer {pat}"},
-        )
+        url="https://api.githubcopilot.com/mcp/",
+        headers={"Authorization": f"Bearer {pat}"},
     )
 
 
@@ -135,21 +132,15 @@ def create_brave_mcp() -> MCPClient:
 
 def create_aws_knowledge_mcp() -> MCPClient:
     """AWS Knowledge MCP（Streamable HTTP）"""
-    return MCPClient(
-        lambda: streamablehttp_client(
-            url="https://knowledge-mcp.global.api.aws",
-        )
-    )
+    return MCPClient(url="https://knowledge-mcp.global.api.aws")
 
 
 def create_google_developer_mcp() -> MCPClient:
     """Google Developer Knowledge MCP（Streamable HTTP）"""
     api_key = get_env("GOOGLE_DEVELOPER_KNOWLEDGE_API_KEY")
     return MCPClient(
-        lambda: streamablehttp_client(
-            url="https://developerknowledge.googleapis.com/mcp",
-            headers={"X-Goog-Api-Key": api_key},
-        )
+        url="https://developerknowledge.googleapis.com/mcp",
+        headers={"X-Goog-Api-Key": api_key},
     )
 
 

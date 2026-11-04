@@ -15,9 +15,9 @@ WORKDIR /app
 # 依存インストール（キャッシュ活用）
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir . 2>/dev/null || pip install --no-cache-dir \
-    "strands-agents[anthropic,bedrock,openai,gemini]" \
+    "strands-agents[anthropic,bedrock,openai,gemini]>=1.55" \
     strands-agents-tools \
-    "mcp>=1.23,<2" \
+    "mcp>=2,<3" \
     litellm \
     fastapi \
     orjson \

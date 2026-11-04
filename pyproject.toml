@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "okamoちゃんねる — AI 3人が2ch風BBSで記事をレビューする自律議論システム"
 requires-python = ">=3.12"
 dependencies = [
-    "strands-agents[anthropic,bedrock,openai,gemini]",
+    # mcp 2.x が必要（litellm 1.100+ が mcp.types.CacheableResult を import する）。
+    # strands-agents 1.55+ は mcp 1.x/2.x 両対応で MCPClient(url=...) が使える。
+    "strands-agents[anthropic,bedrock,openai,gemini]>=1.55",
     "strands-agents-tools",
-    # mcp 2.x removed the deprecated `streamablehttp_client` alias that
-    # strands-agents 1.48.0 and main.py import. Keep the 1.x line.
-    "mcp>=1.23,<2",
+    "mcp>=2,<3",
     "litellm",
     "fastapi",
     "orjson",
