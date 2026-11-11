@@ -58,7 +58,7 @@ def get_env(key: str, default: str = "") -> str:
 def create_claude_model() -> AnthropicModel:
     return AnthropicModel(
         client_args={"api_key": get_env("CLAUDE_API_KEY")},
-        model_id=get_env("CLAUDE_MODEL_ID", "claude-sonnet-5"),
+        model_id=get_env("CLAUDE_MODEL_ID", "claude-sonnet-5-5"),
         max_tokens=16384,
     )
 
@@ -71,7 +71,7 @@ def create_openai_model() -> OpenAIResponsesModel:
     """
     return OpenAIResponsesModel(
         client_args={"api_key": get_env("OPENAI_API_KEY")},
-        model_id=get_env("OPEN_AI_MODEL_ID", "gpt-5.6-terra"),
+        model_id=get_env("OPEN_AI_MODEL_ID", "gpt-6.1-terra"),
     )
 
 
